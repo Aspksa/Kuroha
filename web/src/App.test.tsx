@@ -22,6 +22,10 @@ const api = vi.hoisted(() => ({
   applyUpdate: vi.fn(),
   getUpdateBackups: vi.fn(),
   rollbackUpdate: vi.fn(),
+  getUpdatePreferences: vi.fn(),
+  saveUpdatePreferences: vi.fn(),
+  deleteUpdateToken: vi.fn(),
+  getProjectLife: vi.fn(),
   backupDownloadUrl: vi.fn((id: string) => "/download/" + id),
   logsDownloadUrl: vi.fn(() => "/logs/download"),
 }));
@@ -33,10 +37,10 @@ beforeEach(() => {
   window.history.pushState({}, "", "/home");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.7.0", environment: "test" },
+    health: { status: "ok", version: "0.8.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.7.0",
+      version: "0.8.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
@@ -82,7 +86,7 @@ beforeEach(() => {
   });
   api.getLogs.mockResolvedValue([]);
   api.getUpdateStatus.mockResolvedValue({
-    current_version: "0.7.0",
+    current_version: "0.8.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -93,9 +97,10 @@ beforeEach(() => {
     commit_message: "Новая версия",
     changelog: ["feat: новая функция"],
     checked_at: "2026-10-13T00:00:00Z",
+    channel: "fresh",
   });
   api.prepareUpdate.mockResolvedValue({
-    current_version: "0.7.0",
+    current_version: "0.8.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -106,8 +111,43 @@ beforeEach(() => {
     commit_message: "Новая версия",
     changelog: ["feat: новая функция"],
     checked_at: "2026-10-13T00:00:00Z",
+    channel: "fresh",
   });
   api.getUpdateBackups.mockResolvedValue([]);
+  api.getUpdatePreferences.mockResolvedValue({
+    channel: "fresh",
+    auto_check: "daily",
+    token_saved: false,
+  });
+  api.saveUpdatePreferences.mockResolvedValue({
+    channel: "fresh",
+    auto_check: "daily",
+    token_saved: false,
+  });
+  api.deleteUpdateToken.mockResolvedValue({
+    channel: "fresh",
+    auto_check: "daily",
+    token_saved: false,
+  });
+  api.getProjectLife.mockResolvedValue({
+    generated_at: "2026-10-13T00:00:00Z",
+    source: "git+files",
+    commits: 18,
+    age_days: 1,
+    files: 42,
+    code_lines: 5000,
+    test_files: 10,
+    tests: 84,
+    languages: [{ name: "TypeScript", lines: 3000, percent: 60 }],
+    sections: [
+      {
+        title: "Анатомия проекта",
+        metrics: [
+          { icon: "📜", title: "Строк родилось", value: "5 000", detail: "за 18 коммитов", progress: null },
+        ],
+      },
+    ],
+  });
   api.rollbackUpdate.mockResolvedValue({
     accepted: true,
     backup: "source-before-test.zip",
@@ -168,7 +208,9 @@ describe("App", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/update"));
     expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
-    expect(screen.getByText("0.7.0")).toBeInTheDocument();
+    expect(screen.getByText("0.8.0")).toBeInTheDocument();
+    expect(screen.getByText("ЖИЗНЬ ПРОЕКТА")).toBeInTheDocument();
+    expect(screen.getByText("18 коммитов · 1 дней")).toBeInTheDocument();
   });
 
   it("can rename and reorder navigation items", async () => {
