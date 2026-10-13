@@ -126,13 +126,19 @@ if /I "!MODE!"=="production" (
   )
   popd
 
-  start "Kuroha (!API_PORT!)" /D "%ROOT%" cmd /k "chcp 65001 >nul && set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && set KUROHA_ENV=production && set KUROHA_PORT=!API_PORT! && set KUROHA_DATA_DIR=%ROOT%data && ""%ROOT%.venv\Scripts\python.exe"" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!"
+  set "KUROHA_ENV=production"
+  set "KUROHA_PORT=!API_PORT!"
+  set "KUROHA_DATA_DIR=%ROOT%data"
+  start "Kuroha (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   timeout /t 2 /nobreak >nul
   start "" "http://127.0.0.1:!API_PORT!"
   echo Web/API: http://127.0.0.1:!API_PORT!
 ) else (
-  start "Kuroha API (!API_PORT!)" /D "%ROOT%" cmd /k "chcp 65001 >nul && set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && set KUROHA_ENV=development && set KUROHA_DATA_DIR=%ROOT%data && ""%ROOT%.venv\Scripts\python.exe"" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!"
-  start "Kuroha Web (!WEB_PORT!)" /D "%ROOT%web" cmd /k "chcp 65001 >nul && set VITE_API_TARGET=http://127.0.0.1:!API_PORT!&& npm run dev -- --host 127.0.0.1 --port !WEB_PORT!"
+  set "KUROHA_ENV=development"
+  set "KUROHA_DATA_DIR=%ROOT%data"
+  set "VITE_API_TARGET=http://127.0.0.1:!API_PORT!"
+  start "Kuroha API (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
+  start "Kuroha Web (!WEB_PORT!)" /D "%PROJECT_DIR%\web" cmd /k npm run dev -- --host 127.0.0.1 --port !WEB_PORT!
   timeout /t 2 /nobreak >nul
   start "" "http://127.0.0.1:!WEB_PORT!"
   echo API: http://127.0.0.1:!API_PORT!

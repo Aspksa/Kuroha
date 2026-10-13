@@ -76,6 +76,7 @@ jobs:
           Copy-Item -Path ".\*" -Destination $target -Recurse -Force
           & "$target\Kuroha.bat" --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "KUROHA_TEST_TARGET=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Validate editable install from Cyrillic path
         shell: powershell
@@ -84,6 +85,15 @@ jobs:
           py -3.13 -m venv "$target\.venv-ci"
           & "$target\.venv-ci\Scripts\python.exe" -m pip install --disable-pip-version-check -e "$target"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Validate process command from Cyrillic path
+        shell: cmd
+        run: |
+          chcp 65001 >nul
+          pushd "%KUROHA_TEST_TARGET%"
+          "%KUROHA_TEST_TARGET%\.venv-ci\Scripts\python.exe" --version
+          if errorlevel 1 exit /b 1
+          popd
 
 
   e2e:
