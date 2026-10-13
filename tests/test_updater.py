@@ -103,3 +103,50 @@ def test_apply_is_blocked_for_git_checkout(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Git-клона"):
         service.apply()
+
+
+def test_update_history_lists_source_backups(tmp_path: Path) -> None:
+    project = tmp_path / "Kuroha"
+    project.mkdir()
+    service = UpdateService(project, tmp_path / "data")
+    backup_dir = service.update_dir / "backups"
+    backup_dir.mkdir(parents=True)
+    archive = backup_dir / "source-before-20261013T120000Z.zip"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr("README.md", "old")
+
+    history = service.list_backups()
+
+    assert len(history) == 1
+    assert history[0]["filename"] == archive.name
+    assert history[0]["size_bytes"] > 0
+
+
+def test_update_check_exposes_changelog(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = tmp_path / "Kuroha"
+    project.mkdir()
+    service = UpdateService(project, tmp_path / "data")
+    service.update_dir.mkdir(parents=True)
+    service.state_file.write_text(
+        json.dumps({"installed_sha": "a" * 40}),
+        encoding="utf-8",
+    )
+
+    def fake_json(url: str) -> dict[str, object]:
+        if "/compare/" in url:
+            return {
+                "commits": [
+                    {"commit": {"message": "feat: one\nbody"}},
+                    {"commit": {"message": "fix: two"}},
+                ]
+            }
+        return _branch_payload()
+
+    monkeypatch.setattr(service, "_fetch_json", fake_json)
+
+    status = service.check()
+
+    assert status["changelog"] == ["feat: one", "fix: two"]
