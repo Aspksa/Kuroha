@@ -31,10 +31,10 @@ beforeEach(() => {
   window.history.pushState({}, "", "/overview");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.4.0", environment: "test" },
+    health: { status: "ok", version: "0.5.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.4.0",
+      version: "0.5.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
