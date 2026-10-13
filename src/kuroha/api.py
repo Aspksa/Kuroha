@@ -223,7 +223,10 @@ def delete_update_token(request: Request) -> UpdatePreferences:
 
 @router.get("/update/project-life", response_model=ProjectLifeResponse)
 def project_life(request: Request) -> ProjectLifeResponse:
-    service = ProjectLifeService(request.app.state.settings.project_root)
+    service = ProjectLifeService(
+        request.app.state.settings.project_root,
+        fetch_json=_updater(request).github_json,
+    )
     return ProjectLifeResponse.model_validate(service.collect())
 
 
