@@ -23,11 +23,23 @@ class InfoResponse(BaseModel):
 class PublicSettings(BaseModel):
     site_name: str
     theme: Literal["dark", "light"]
+    language: Literal["ru"]
+    autostart_windows: bool
+    launch_minimized: bool
+    minimize_to_tray: bool
+    check_updates_on_start: bool
+    preferred_api_port: int
 
 
 class SettingsUpdate(BaseModel):
     site_name: str | None = Field(default=None, min_length=1, max_length=80)
     theme: Literal["dark", "light"] | None = None
+    language: Literal["ru"] | None = None
+    autostart_windows: bool | None = None
+    launch_minimized: bool | None = None
+    minimize_to_tray: bool | None = None
+    check_updates_on_start: bool | None = None
+    preferred_api_port: int | None = Field(default=None, ge=1024, le=65535)
 
 
 class BackupInfo(BaseModel):
@@ -81,6 +93,12 @@ class CleanupResult(BaseModel):
     freed_bytes: int
 
 
+class UpdateBackup(BaseModel):
+    filename: str
+    created_at: str
+    size_bytes: int
+
+
 class UpdateStatus(BaseModel):
     current_version: str
     installed_sha: str | None
@@ -91,10 +109,17 @@ class UpdateStatus(BaseModel):
     repository_url: str
     branch: str
     commit_message: str
+    changelog: list[str]
     checked_at: str
 
 
 class UpdateApplyResponse(BaseModel):
     accepted: bool
     target_sha: str
+    message: str
+
+
+class UpdateRollbackResponse(BaseModel):
+    accepted: bool
+    backup: str
     message: str

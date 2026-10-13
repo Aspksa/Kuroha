@@ -4,7 +4,7 @@ import sqlite3
 from collections.abc import Callable
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 Migration = Callable[[sqlite3.Connection], None]
 
@@ -37,9 +37,24 @@ def _migration_2(connection: sqlite3.Connection) -> None:
     )
 
 
+def _migration_3(connection: sqlite3.Connection) -> None:
+    connection.executemany(
+        "INSERT OR IGNORE INTO app_settings(key, value) VALUES (?, ?)",
+        (
+            ("language", "ru"),
+            ("autostart_windows", "false"),
+            ("launch_minimized", "false"),
+            ("minimize_to_tray", "true"),
+            ("check_updates_on_start", "true"),
+            ("preferred_api_port", "8000"),
+        ),
+    )
+
+
 MIGRATIONS: dict[int, Migration] = {
     1: _migration_1,
     2: _migration_2,
+    3: _migration_3,
 }
 
 
