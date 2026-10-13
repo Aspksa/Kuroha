@@ -135,6 +135,7 @@ class ProjectLifeLanguage(BaseModel):
 class ProjectLifeResponse(BaseModel):
     generated_at: str
     source: str
+    last_commit_at: str | None
     commits: int
     age_days: int
     files: int
