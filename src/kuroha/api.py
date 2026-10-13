@@ -3,7 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from kuroha import __version__
+from kuroha.diagnostics import collect_diagnostics
 from kuroha.models import (
+    BackupInfo,
+    DiagnosticsResponse,
     HealthResponse,
     InfoResponse,
     PublicSettings,
@@ -44,7 +47,15 @@ def info() -> InfoResponse:
         name="Kuroha",
         version=__version__,
         api_version="v1",
-        capabilities=["web", "settings", "sqlite-storage", "health"],
+        capabilities=[
+            "web",
+            "settings",
+            "sqlite-storage",
+            "health",
+            "diagnostics",
+            "backup-restore",
+            "migrations",
+        ],
     )
 
 
@@ -63,3 +74,29 @@ def update_settings(payload: SettingsUpdate, request: Request) -> PublicSettings
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PublicSettings.model_validate(current)
+
+
+@router.get("/diagnostics", response_model=DiagnosticsResponse)
+def diagnostics(request: Request) -> DiagnosticsResponse:
+    data = collect_diagnostics(request.app.state.settings, _store(request))
+    return DiagnosticsResponse.model_validate(data)
+
+
+@router.get("/backups", response_model=list[BackupInfo])
+def list_backups(request: Request) -> list[BackupInfo]:
+    return [BackupInfo.model_validate(item) for item in _store(request).list_backups()]
+
+
+@router.post("/backups", response_model=BackupInfo, status_code=201)
+def create_backup(request: Request) -> BackupInfo:
+    return BackupInfo.model_validate(_store(request).create_backup())
+
+
+@router.post("/backups/{backup_id}/restore", status_code=204)
+def restore_backup(backup_id: str, request: Request) -> None:
+    try:
+        _store(request).restore_backup(backup_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Backup not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

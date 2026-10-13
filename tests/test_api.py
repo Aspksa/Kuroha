@@ -25,7 +25,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "environment": "test",
         }
 
@@ -56,6 +56,38 @@ def test_settings_persist_in_sqlite(tmp_path: Path) -> None:
     with build_client(tmp_path) as client:
         persisted = client.get("/api/v1/settings")
         assert persisted.json() == {"site_name": "Куроха", "theme": "light"}
+
+
+def test_diagnostics_exposes_storage_health(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        response = client.get("/api/v1/diagnostics")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["database_schema_version"] == 2
+    assert payload["database_journal_mode"] == "wal"
+    assert payload["database_integrity"] == "ok"
+    assert payload["data_dir_writable"] is True
+    assert payload["python_version"]
+
+
+def test_backup_and_restore_api(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        client.put("/api/v1/settings", json={"site_name": "До бэкапа"})
+        created = client.post("/api/v1/backups")
+        assert created.status_code == 201
+        backup_id = created.json()["id"]
+
+        client.put("/api/v1/settings", json={"site_name": "После бэкапа"})
+        restored = client.post(f"/api/v1/backups/{backup_id}/restore")
+        assert restored.status_code == 204
+
+        settings = client.get("/api/v1/settings")
+        assert settings.json()["site_name"] == "До бэкапа"
+
+        backups = client.get("/api/v1/backups")
+        assert backups.status_code == 200
+        assert any(item["id"] == backup_id for item in backups.json())
 
 
 def test_validation_error_has_stable_shape(tmp_path: Path) -> None:

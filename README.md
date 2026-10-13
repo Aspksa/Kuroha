@@ -6,17 +6,17 @@ Kuroha is a Python + TypeScript platform foundation. The current stage focuses o
 
 - FastAPI backend with versioned API at /api/v1
 - React + TypeScript + Vite website
-- SQLite local persistence
+- SQLite local persistence with managed schema migrations and WAL mode
 - environment configuration through .env
 - production static-web serving from FastAPI
 - portable Windows launcher
 - UTF-8 and Cyrillic-safe paths
 - Python 3.10–3.15 compatibility
 - automatic free-port selection
-- structured health/readiness endpoints
+- structured health/readiness and system diagnostics endpoints
 - security headers, CORS allow-list and request-size limits
 - Python/Web/Windows CI and dependency audits
-- portable release ZIP workflow
+- local backup/restore and portable release ZIP workflow
 
 ## Start on Windows
 
@@ -57,12 +57,16 @@ Primary API prefix: /api/v1.
 - GET /api/v1/info
 - GET /api/v1/settings
 - PUT /api/v1/settings
+- GET /api/v1/diagnostics
+- GET /api/v1/backups
+- POST /api/v1/backups
+- POST /api/v1/backups/{backup_id}/restore
 
 The previous /api/* prefix remains as a compatibility alias.
 
 ## Storage
 
-Local persistent data is stored in data/kuroha.db by default. The folder is ignored by Git and travels with the portable project when launched through Kuroha.bat.
+Local persistent data is stored in data/kuroha.db by default. Schema migrations are applied automatically without resetting existing data. SQLite uses WAL mode and integrity checks. Backups are stored in data/backups as validated ZIP restore points.
 
 ## Security baseline
 
@@ -75,6 +79,7 @@ Kuroha applies restrictive CORS configuration, request-body limits, CSP, frame p
     python -m ruff check .
     cd web
     npm install
+    npm run test
     npm run build
 
 CI runs the Python suite on Python 3.10–3.15 and validates Kuroha.bat on Windows, including a path containing Cyrillic characters and spaces.

@@ -34,6 +34,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class StaticCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        response = await call_next(request)
+        if not request.url.path.startswith("/api/"):
+            if request.url.path.startswith("/assets/"):
+                response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            elif request.url.path != "/":
+                response.headers.setdefault("Cache-Control", "public, max-age=300")
+        return response
+
+
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: object, max_bytes: int) -> None:
         super().__init__(app)
