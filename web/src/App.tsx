@@ -55,6 +55,7 @@ export default function App() {
     minimize_to_tray: true,
     check_updates_on_start: true,
     preferred_api_port: 8000,
+    preferred_data_dir: "",
   });
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [usage, setUsage] = useState<StorageUsage>(emptyUsage);
