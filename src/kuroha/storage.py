@@ -56,33 +56,33 @@ class SQLiteStore:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        with self._lock, closing(self._connect()) as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             migrate(connection)
 
     def is_ready(self) -> bool:
         try:
-            with closing(self._connect()) as connection:
+            with closing(self._connect()) as connection, connection:
                 return connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"
         except sqlite3.Error:
             return False
 
     def schema_version(self) -> int:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             return int(connection.execute("PRAGMA user_version").fetchone()[0])
 
     def journal_mode(self) -> str:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             return str(connection.execute("PRAGMA journal_mode").fetchone()[0])
 
     def integrity_check(self) -> str:
-        with closing(self._connect()) as connection:
+        with closing(self._connect()) as connection, connection:
             return str(connection.execute("PRAGMA integrity_check").fetchone()[0])
 
     def database_size(self) -> int:
         return self.database_path.stat().st_size if self.database_path.exists() else 0
 
     def get_settings(self) -> dict[str, str]:
-        with self._lock, closing(self._connect()) as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             rows = connection.execute(
                 "SELECT key, value FROM app_settings ORDER BY key"
             ).fetchall()
@@ -94,7 +94,7 @@ class SQLiteStore:
             names = ", ".join(sorted(unknown))
             raise ValueError(f"unsupported settings: {names}")
 
-        with self._lock, closing(self._connect()) as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             for key, value in values.items():
                 connection.execute(
                     """
@@ -113,9 +113,9 @@ class SQLiteStore:
 
         with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
             snapshot = Path(temp_dir) / "kuroha.db"
-            with self._lock, closing(self._connect()) as source:
+            with self._lock, closing(self._connect()) as source, source:
                 source.execute("PRAGMA wal_checkpoint(PASSIVE)")
-                with closing(self._connect_path(snapshot)) as target:
+                with closing(self._connect_path(snapshot)) as target, target:
                     source.backup(target)
                     target.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
@@ -194,7 +194,7 @@ class SQLiteStore:
                     with archive.open(database_info, "r") as source, candidate.open("wb") as target:
                         shutil.copyfileobj(source, target, length=1024 * 1024)
 
-                with closing(self._connect_path(candidate)) as connection:
+                with closing(self._connect_path(candidate)) as connection, connection:
                     if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                         raise ValueError("backup database failed integrity check")
                     migrate(connection)
@@ -245,7 +245,7 @@ class SQLiteStore:
                     shutil.copyfileobj(source, target, length=1024 * 1024)
 
             restored = temp_path / "kuroha.db"
-            with closing(self._connect_path(restored)) as connection:
+            with closing(self._connect_path(restored)) as connection, connection:
                 if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("backup database failed integrity check")
                 migrate(connection)
@@ -253,7 +253,7 @@ class SQLiteStore:
 
             with self._lock:
                 if self.database_path.exists():
-                    with closing(self._connect()) as current:
+                    with closing(self._connect()) as current, current:
                         current.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                     safety = self.database_path.with_suffix(".pre-restore.db")
                     try:
