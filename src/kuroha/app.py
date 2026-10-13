@@ -6,19 +6,24 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from kuroha import __version__
 from kuroha.api import router
 from kuroha.config import PROJECT_ROOT, Settings
 from kuroha.logging import configure_logging
-from kuroha.security import RequestSizeLimitMiddleware, SecurityHeadersMiddleware
+from kuroha.security import (
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+    StaticCacheMiddleware,
+)
 from kuroha.storage import SQLiteStore
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     runtime_settings = settings or Settings.from_env()
-    configure_logging(runtime_settings.log_level)
+    configure_logging(runtime_settings.log_level, runtime_settings.data_dir)
     store = SQLiteStore(runtime_settings.database_path)
 
     @asynccontextmanager
@@ -35,6 +40,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = runtime_settings
     app.state.store = store
 
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+    app.add_middleware(StaticCacheMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         RequestSizeLimitMiddleware,
@@ -44,7 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=list(runtime_settings.cors_origins),
         allow_credentials=False,
-        allow_methods=["GET", "PUT", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
 

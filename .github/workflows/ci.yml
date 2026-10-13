@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: \${{ matrix.python-version }}
       - run: python -m pip install -e ".[dev]"
       - run: python -m pytest
 
@@ -51,6 +51,7 @@ jobs:
         with:
           node-version: "20"
       - run: npm install
+      - run: npm run test
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
 

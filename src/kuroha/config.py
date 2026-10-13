@@ -23,6 +23,7 @@ class Settings:
     log_level: str
     cors_origins: tuple[str, ...]
     max_request_bytes: int
+    project_root: Path = PROJECT_ROOT
 
     @classmethod
     def from_env(cls) -> "Settings":
