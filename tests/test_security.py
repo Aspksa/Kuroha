@@ -40,6 +40,7 @@ def test_cors_allows_only_configured_origin(tmp_path: Path) -> None:
             headers={
                 "Origin": "http://localhost:5173",
                 "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "X-Kuroha, Content-Type",
             },
         )
         blocked = client.options(
