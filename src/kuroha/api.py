@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 
@@ -223,11 +225,23 @@ def delete_update_token(request: Request) -> UpdatePreferences:
 
 @router.get("/update/project-life", response_model=ProjectLifeResponse)
 def project_life(request: Request) -> ProjectLifeResponse:
+    cached = getattr(request.app.state, "project_life_cache", None)
+    now = time.monotonic()
+    if cached and now - cached["time"] < 300:
+        return ProjectLifeResponse.model_validate(cached["value"])
+
+    fetch_json = (
+        None
+        if request.app.state.settings.environment == "test"
+        else _updater(request).github_json
+    )
     service = ProjectLifeService(
         request.app.state.settings.project_root,
-        fetch_json=_updater(request).github_json,
+        fetch_json=fetch_json,
     )
-    return ProjectLifeResponse.model_validate(service.collect())
+    value = service.collect()
+    request.app.state.project_life_cache = {"time": now, "value": value}
+    return ProjectLifeResponse.model_validate(value)
 
 
 @router.get("/update/status", response_model=UpdateStatus)
