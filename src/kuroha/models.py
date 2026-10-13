@@ -101,6 +101,51 @@ class UpdateBackup(BaseModel):
     size_bytes: int
 
 
+class UpdatePreferences(BaseModel):
+    channel: Literal["fresh", "stable"]
+    auto_check: Literal["hourly", "daily", "off"]
+    token_saved: bool
+
+
+class UpdatePreferencesUpdate(BaseModel):
+    channel: Literal["fresh", "stable"]
+    auto_check: Literal["hourly", "daily", "off"]
+    token: str | None = Field(default=None, max_length=500)
+
+
+class ProjectLifeMetric(BaseModel):
+    icon: str
+    title: str
+    value: str
+    detail: str
+    progress: float | None = None
+
+
+class ProjectLifeSection(BaseModel):
+    title: str
+    metrics: list[ProjectLifeMetric]
+
+
+class ProjectLifeLanguage(BaseModel):
+    name: str
+    lines: int
+    percent: float
+
+
+class ProjectLifeResponse(BaseModel):
+    generated_at: str
+    source: str
+    last_commit_at: str | None
+    commits: int
+    age_days: int
+    files: int
+    code_lines: int
+    test_files: int
+    tests: int
+    languages: list[ProjectLifeLanguage]
+    sections: list[ProjectLifeSection]
+
+
 class UpdateStatus(BaseModel):
     current_version: str
     installed_sha: str | None
@@ -113,6 +158,7 @@ class UpdateStatus(BaseModel):
     commit_message: str
     changelog: list[str]
     checked_at: str
+    channel: Literal["fresh", "stable"]
 
 
 class UpdateApplyResponse(BaseModel):

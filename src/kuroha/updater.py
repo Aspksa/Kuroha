@@ -21,6 +21,12 @@ BRANCH = "main"
 REPOSITORY_URL = "https://github.com/Aspksa/Kuroha"
 BRANCH_API_URL = f"https://api.github.com/repos/{REPOSITORY}/branches/{BRANCH}"
 COMPARE_API_URL = f"https://api.github.com/repos/{REPOSITORY}/compare"
+LATEST_RELEASE_API_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
+COMMITS_API_URL = f"https://api.github.com/repos/{REPOSITORY}/commits"
+UPDATE_PREFERENCES_DEFAULTS = {
+    "channel": "fresh",
+    "auto_check": "daily",
+}
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXTRACTED_BYTES = 256 * 1024 * 1024
 
@@ -297,19 +303,92 @@ class UpdateService:
         self.stage_dir = self.update_dir / "staged"
         self.state_file = self.update_dir / "state.json"
         self.prepared_file = self.update_dir / "prepared.json"
+        self.preferences_file = self.update_dir / "preferences.json"
+        self.token_file = self.update_dir / "github-token.txt"
 
     def _request(self, url: str) -> urllib.request.Request:
-        return urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": f"Kuroha/{__version__}",
-            },
-        )
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "User-Agent": f"Kuroha/{__version__}",
+        }
+        token = self._token()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+        return urllib.request.Request(url, headers=headers)
 
-    def _fetch_json(self, url: str) -> dict[str, Any]:
+    def _token(self) -> str | None:
+        try:
+            token = self.token_file.read_text(encoding="utf-8").strip()
+            return token or None
+        except OSError:
+            return None
+
+    def preferences(self) -> dict[str, Any]:
+        values = dict(UPDATE_PREFERENCES_DEFAULTS)
+        try:
+            payload = json.loads(self.preferences_file.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                channel = payload.get("channel")
+                auto_check = payload.get("auto_check")
+                if channel in {"fresh", "stable"}:
+                    values["channel"] = channel
+                if auto_check in {"hourly", "daily", "off"}:
+                    values["auto_check"] = auto_check
+        except (OSError, ValueError, TypeError):
+            pass
+        values["token_saved"] = bool(self._token())
+        return values
+
+    def save_preferences(
+        self,
+        *,
+        channel: str,
+        auto_check: str,
+        token: str | None = None,
+    ) -> dict[str, Any]:
+        if channel not in {"fresh", "stable"}:
+            raise ValueError("неизвестный канал обновлений")
+        if auto_check not in {"hourly", "daily", "off"}:
+            raise ValueError("неизвестный режим автопроверки")
+
+        self.update_dir.mkdir(parents=True, exist_ok=True)
+        temp = self.preferences_file.with_suffix(".tmp")
+        temp.write_text(
+            json.dumps(
+                {"channel": channel, "auto_check": auto_check},
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        os.replace(temp, self.preferences_file)
+
+        if token is not None:
+            normalized = token.strip()
+            if len(normalized) > 500:
+                raise ValueError("GitHub-токен слишком длинный")
+            if normalized:
+                self.token_file.write_text(normalized, encoding="utf-8")
+                try:
+                    os.chmod(self.token_file, 0o600)
+                except OSError:
+                    pass
+
+        return self.preferences()
+
+    def delete_token(self) -> dict[str, Any]:
+        try:
+            self.token_file.unlink()
+        except FileNotFoundError:
+            pass
+        return self.preferences()
+
+    def _fetch_json(self, url: str) -> Any:
         with urllib.request.urlopen(self._request(url), timeout=10) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def github_json(self, url: str) -> Any:
+        return self._fetch_json(url)
 
     def _installed_sha(self) -> str | None:
         git_dir = self.project_root / ".git"
@@ -360,12 +439,29 @@ class UpdateService:
         except Exception:
             return []
 
-    def check(self) -> dict[str, Any]:
+    def _target(self) -> tuple[str, str, str]:
+        preferences = self.preferences()
+        if preferences["channel"] == "stable":
+            release = self._fetch_json(LATEST_RELEASE_API_URL)
+            tag = str(release.get("tag_name", "")).strip()
+            if not tag:
+                raise ValueError("в GitHub Releases нет стабильного выпуска")
+            commit = self._fetch_json(f"{COMMITS_API_URL}/{tag}")
+            remote_sha = str(commit["sha"])
+            title = str(release.get("name") or tag)
+            return remote_sha, tag, title
+
         payload = self._fetch_json(BRANCH_API_URL)
         remote_sha = str(payload["commit"]["sha"])
         commit = payload["commit"].get("commit", {})
+        message = str(commit.get("message", "")).splitlines()[0]
+        return remote_sha, BRANCH, message
+
+    def check(self) -> dict[str, Any]:
+        remote_sha, target_label, commit_message = self._target()
         installed_sha = self._installed_sha()
         prepared = self._prepared()
+        preferences = self.preferences()
         return {
             "current_version": __version__,
             "installed_sha": installed_sha,
@@ -374,10 +470,11 @@ class UpdateService:
             "prepared": bool(prepared and prepared.get("sha") == remote_sha),
             "git_checkout": (self.project_root / ".git").exists(),
             "repository_url": REPOSITORY_URL,
-            "branch": BRANCH,
-            "commit_message": str(commit.get("message", "")).splitlines()[0],
+            "branch": target_label,
+            "commit_message": commit_message,
             "changelog": self._changelog(installed_sha, remote_sha),
             "checked_at": datetime.now(timezone.utc).isoformat(),
+            "channel": preferences["channel"],
         }
 
     def _download_archive(self, destination: Path, sha: str) -> None:

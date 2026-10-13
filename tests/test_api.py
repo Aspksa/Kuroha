@@ -29,7 +29,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.7.0",
+            "version": "0.8.0",
             "environment": "test",
         }
 
@@ -168,3 +168,40 @@ def test_invalid_backup_manifest_shape_returns_422(tmp_path: Path) -> None:
         )
 
     assert response.status_code == 422
+
+
+def test_update_preferences_and_project_life(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir(parents=True)
+    (project / "sample.py").write_text(
+        "async def hello():\n    await world()\n",
+        encoding="utf-8",
+    )
+
+    with build_client(tmp_path) as client:
+        preferences = client.get("/api/v1/update/preferences")
+        assert preferences.status_code == 200
+        assert preferences.json()["channel"] == "fresh"
+        assert preferences.json()["auto_check"] == "daily"
+        assert preferences.json()["token_saved"] is False
+
+        saved = client.put(
+            "/api/v1/update/preferences",
+            json={
+                "channel": "fresh",
+                "auto_check": "hourly",
+                "token": "test-token",
+            },
+        )
+        assert saved.status_code == 200
+        assert saved.json()["auto_check"] == "hourly"
+        assert saved.json()["token_saved"] is True
+
+        life = client.get("/api/v1/update/project-life")
+        assert life.status_code == 200
+        assert life.json()["files"] >= 1
+        assert life.json()["code_lines"] >= 2
+
+        deleted = client.delete("/api/v1/update/preferences/token")
+        assert deleted.status_code == 200
+        assert deleted.json()["token_saved"] is False

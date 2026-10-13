@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 
@@ -13,15 +15,19 @@ from kuroha.models import (
     HealthResponse,
     InfoResponse,
     LogEntry,
+    ProjectLifeResponse,
     PublicSettings,
     ReadyResponse,
     SettingsUpdate,
     StorageUsage,
     UpdateApplyResponse,
     UpdateBackup,
+    UpdatePreferences,
+    UpdatePreferencesUpdate,
     UpdateRollbackResponse,
     UpdateStatus,
 )
+from kuroha.project_life import ProjectLifeService
 from kuroha.runtime_controls import set_windows_autostart, write_launcher_config
 from kuroha.storage import SQLiteStore
 from kuroha.updater import UpdateService
@@ -79,6 +85,8 @@ def info() -> InfoResponse:
             "update-rollback",
             "windows-tray",
             "application-settings",
+            "project-life",
+            "update-channels",
         ],
     )
 
@@ -183,6 +191,57 @@ def storage_usage(request: Request) -> StorageUsage:
 @router.post("/storage/cleanup", response_model=CleanupResult)
 def cleanup_storage(payload: CleanupRequest, request: Request) -> CleanupResult:
     return CleanupResult.model_validate(_store(request).cleanup_storage(payload.keep_backups))
+
+
+
+
+
+@router.get("/update/preferences", response_model=UpdatePreferences)
+def update_preferences(request: Request) -> UpdatePreferences:
+    return UpdatePreferences.model_validate(_updater(request).preferences())
+
+
+@router.put("/update/preferences", response_model=UpdatePreferences)
+def save_update_preferences(
+    payload: UpdatePreferencesUpdate,
+    request: Request,
+) -> UpdatePreferences:
+    try:
+        return UpdatePreferences.model_validate(
+            _updater(request).save_preferences(
+                channel=payload.channel,
+                auto_check=payload.auto_check,
+                token=payload.token,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/update/preferences/token", response_model=UpdatePreferences)
+def delete_update_token(request: Request) -> UpdatePreferences:
+    return UpdatePreferences.model_validate(_updater(request).delete_token())
+
+
+@router.get("/update/project-life", response_model=ProjectLifeResponse)
+def project_life(request: Request) -> ProjectLifeResponse:
+    cached = getattr(request.app.state, "project_life_cache", None)
+    now = time.monotonic()
+    if cached and now - cached["time"] < 300:
+        return ProjectLifeResponse.model_validate(cached["value"])
+
+    fetch_json = (
+        None
+        if request.app.state.settings.environment == "test"
+        else _updater(request).github_json
+    )
+    service = ProjectLifeService(
+        request.app.state.settings.project_root,
+        fetch_json=fetch_json,
+    )
+    value = service.collect()
+    request.app.state.project_life_cache = {"time": now, "value": value}
+    return ProjectLifeResponse.model_validate(value)
 
 
 @router.get("/update/status", response_model=UpdateStatus)

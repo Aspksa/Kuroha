@@ -150,3 +150,50 @@ def test_update_check_exposes_changelog(
     status = service.check()
 
     assert status["changelog"] == ["feat: one", "fix: two"]
+
+
+def test_update_preferences_store_token_without_exposing_it(tmp_path: Path) -> None:
+    project = tmp_path / "Kuroha"
+    project.mkdir()
+    service = UpdateService(project, tmp_path / "data")
+
+    preferences = service.save_preferences(
+        channel="stable",
+        auto_check="hourly",
+        token="secret-token",
+    )
+
+    assert preferences == {
+        "channel": "stable",
+        "auto_check": "hourly",
+        "token_saved": True,
+    }
+    assert service.token_file.read_text(encoding="utf-8") == "secret-token"
+    assert "secret-token" not in json.dumps(service.preferences())
+
+
+def test_stable_channel_resolves_latest_release_sha(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = tmp_path / "Kuroha"
+    project.mkdir()
+    service = UpdateService(project, tmp_path / "data")
+    service.save_preferences(channel="stable", auto_check="daily")
+
+    def fake_json(url: str) -> dict[str, object]:
+        if url.endswith("/releases/latest"):
+            return {"tag_name": "v0.8.0", "name": "Kuroha 0.8.0"}
+        if "/commits/v0.8.0" in url:
+            return {"sha": REMOTE_SHA}
+        if "/compare/" in url:
+            return {"commits": []}
+        raise AssertionError(url)
+
+    monkeypatch.setattr(service, "_fetch_json", fake_json)
+
+    status = service.check()
+
+    assert status["remote_sha"] == REMOTE_SHA
+    assert status["branch"] == "v0.8.0"
+    assert status["channel"] == "stable"
