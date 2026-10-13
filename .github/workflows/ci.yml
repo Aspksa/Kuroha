@@ -85,12 +85,14 @@ jobs:
           & "$target\.venv-ci\Scripts\python.exe" -m pip install --disable-pip-version-check -e "$target"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Validate START quoting from Cyrillic path
+      - name: Validate process command from Cyrillic path
         shell: cmd
         run: |
           set "TARGET=%RUNNER_TEMP%\Куроха тест"
-          start "" /wait /D "%TARGET%" "%TARGET%\.venv-ci\Scripts\python.exe" --version
+          pushd "%TARGET%"
+          "%TARGET%\.venv-ci\Scripts\python.exe" --version
           if errorlevel 1 exit /b 1
+          popd
 
 
   e2e:
