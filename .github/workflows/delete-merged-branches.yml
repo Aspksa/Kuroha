@@ -1,0 +1,80 @@
+name: Delete merged branches
+
+on:
+  pull_request:
+    types: [closed]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  delete-merged-branch:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete merged PR branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr || pr.head.repo.full_name !== context.repo.owner + '/' + context.repo.repo) {
+              core.info('Head branch belongs to a fork; nothing to delete.');
+              return;
+            }
+
+            const branch = pr.head.ref;
+            if (branch === context.payload.repository.default_branch) {
+              core.info('Refusing to delete the default branch.');
+              return;
+            }
+
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/' + branch,
+              });
+              core.info('Deleted merged branch: ' + branch);
+            } catch (error) {
+              if (error.status === 404) {
+                core.info('Branch already deleted: ' + branch);
+                return;
+              }
+              throw error;
+            }
+
+  cleanup-existing-merged-branches:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove previously merged branches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branches = [
+              'feature/core-web-mvp',
+              'feature/portable-launcher-free-ports',
+              'feature/runtime-compat',
+              'feature/windows-launcher',
+              'chore/auto-delete-merged-branches',
+            ];
+
+            for (const branch of branches) {
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: 'heads/' + branch,
+                });
+                core.info('Deleted branch: ' + branch);
+              } catch (error) {
+                if (error.status === 404) {
+                  core.info('Branch already absent: ' + branch);
+                  continue;
+                }
+                throw error;
+              }
+            }
