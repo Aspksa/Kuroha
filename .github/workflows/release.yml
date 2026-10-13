@@ -1,0 +1,40 @@
+name: Build portable release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build web
+        working-directory: web
+        run: |
+          npm install
+          npm run build
+      - name: Create archive
+        shell: powershell
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "Kuroha"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item Kuroha.bat,pyproject.toml,README.md,.env.example -Destination $stage
+          Copy-Item src,web -Destination $stage -Recurse
+          Remove-Item "$stage\web\node_modules" -Recurse -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$stage\*" -DestinationPath "Kuroha-portable.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kuroha-portable
+          path: Kuroha-portable.zip

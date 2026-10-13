@@ -1,60 +1,97 @@
 # Kuroha
 
-Kuroha is a small Python core with a FastAPI HTTP layer and a React/TypeScript web client.
+Kuroha is a Python + TypeScript platform foundation. The current stage focuses on the website, runtime, persistence, portability, testing and security. AI functionality is intentionally out of scope for now.
 
-## Stack
+## Foundation
 
-- Python 3.10–3.15
-- FastAPI
-- React 18
-- TypeScript
-- Vite
+- FastAPI backend with versioned API at /api/v1
+- React + TypeScript + Vite website
+- SQLite local persistence
+- environment configuration through .env
+- production static-web serving from FastAPI
+- portable Windows launcher
+- UTF-8 and Cyrillic-safe paths
+- Python 3.10–3.15 compatibility
+- automatic free-port selection
+- structured health/readiness endpoints
+- security headers, CORS allow-list and request-size limits
+- Python/Web/Windows CI and dependency audits
+- portable release ZIP workflow
 
-## Windows portable quick start
+## Start on Windows
 
-Kuroha can be started directly from a normal folder, another local drive, an external SSD/HDD, or a writable USB drive. Paths with spaces and Cyrillic characters are supported.
+Install Python 3.10–3.15 and Node.js 20+, then double-click Kuroha.bat.
 
-Install a supported Python version (3.10 through 3.15) and Node.js 20+, copy or clone the entire Kuroha folder to the storage device you want, then double-click:
+Default mode is production-like: the launcher builds the web app, starts one local FastAPI process and serves both the website and API from the same free local port.
 
-```text
-Kuroha.bat
-```
+Development mode:
 
-The launcher:
+    Kuroha.bat --dev
 
-- switches the Windows console to UTF-8 and forces Python UTF-8 I/O;
-- automatically chooses an installed supported Python version;
-- rejects unsupported Python versions with a clear message;
-- always resolves paths relative to its own folder instead of relying on the current drive;
-- creates the Python virtual environment on the same storage device;
-- keeps pip/npm caches inside the Kuroha folder;
-- recreates a stale or incompatible virtual environment if the folder was moved or the Python version is unsupported;
-- installs Python and web dependencies when needed;
-- starts the API and web development server in separate windows;
-- automatically selects the first free API port starting at `8000`;
-- automatically selects the first free web port starting at `5173`;
-- passes the selected API address to the Vite proxy;
-- opens the actual selected web address in the browser.
+Validation only:
 
-A writable storage device is required for first-run dependency installation and caches.
+    Kuroha.bat --check
 
-To validate prerequisites, Python compatibility, UTF-8 path handling and free-port discovery without starting Kuroha:
+The launcher can run from normal folders, other local drives, writable USB drives and external SSD/HDD devices. Spaces and Cyrillic characters in the path are supported.
 
-```bat
-Kuroha.bat --check
-```
+## Configuration
 
-## Python compatibility
+Copy .env.example to .env when custom settings are required. .env is ignored by Git and must never be committed.
 
-The package metadata requires Python `>=3.10,<3.16`. CI runs the Python test suite on every supported minor version from 3.10 through 3.15.
+Important variables:
+
+- KUROHA_ENV
+- KUROHA_HOST
+- KUROHA_PORT
+- KUROHA_DATA_DIR
+- KUROHA_LOG_LEVEL
+- KUROHA_CORS_ORIGINS
+- KUROHA_MAX_REQUEST_BYTES
+
+## API
+
+Primary API prefix: /api/v1.
+
+- GET /api/v1/health
+- GET /api/v1/ready
+- GET /api/v1/info
+- GET /api/v1/settings
+- PUT /api/v1/settings
+
+The previous /api/* prefix remains as a compatibility alias.
+
+## Storage
+
+Local persistent data is stored in data/kuroha.db by default. The folder is ignored by Git and travels with the portable project when launched through Kuroha.bat.
+
+## Security baseline
+
+Kuroha applies restrictive CORS configuration, request-body limits, CSP, frame protection, MIME sniffing protection, referrer policy and permissions policy. CI runs Python dependency auditing and npm production dependency auditing.
 
 ## Tests
 
-The test suite covers API health, sessions, Cyrillic/UTF-8 round trips, mixed Unicode text, supported Python runtimes, and core conversation history. Windows CI also copies the project to a Cyrillic path with spaces and runs `Kuroha.bat --check` there.
+    python -m pip install -e ".[dev]"
+    python -m pytest
+    python -m ruff check .
+    cd web
+    npm install
+    npm run build
 
-```bash
-python -m pip install -e ".[dev]"
-python -m pytest
-python -m ruff check .
-cd web && npm install && npm run build
-```
+CI runs the Python suite on Python 3.10–3.15 and validates Kuroha.bat on Windows, including a path containing Cyrillic characters and spaces.
+
+## Release
+
+The Build portable release GitHub Actions workflow creates Kuroha-portable.zip. It can be run manually or by pushing a v* tag.
+
+## Project structure
+
+    src/kuroha/
+      api.py        versioned HTTP routes
+      app.py        application assembly and web serving
+      config.py     environment configuration
+      logging.py    logging setup
+      security.py   HTTP security middleware
+      storage.py    SQLite persistence
+    web/
+      src/          React/TypeScript website
+    tests/          API, storage, security and runtime tests

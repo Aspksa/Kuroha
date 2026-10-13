@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from threading import RLock
 from uuid import uuid4
 
+from kuroha import __version__
+
 
 @dataclass(slots=True)
 class Conversation:
@@ -11,11 +13,7 @@ class Conversation:
 
 
 class KurohaEngine:
-    """Framework-independent Kuroha runtime.
-
-    The current MVP provides deterministic local behavior and session history.
-    Model providers and tools can later be attached behind this interface.
-    """
+    """Legacy deterministic runtime kept isolated from the platform foundation."""
 
     def __init__(self) -> None:
         self._sessions: dict[str, Conversation] = {}
@@ -50,7 +48,10 @@ class KurohaEngine:
         if normalized in {"/ping", "ping"}:
             return "pong"
         if normalized in {"/about", "about"}:
-            return "Kuroha core 0.1.0 — Python runtime with a TypeScript web client."
+            return (
+                f"Kuroha core {__version__} — Python runtime "
+                "with a TypeScript web client."
+            )
         if normalized in {"/history", "history"}:
             user_messages = sum(1 for role, _ in conversation.messages if role == "user")
             return f"This session contains {user_messages} user message(s)."
