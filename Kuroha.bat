@@ -124,7 +124,12 @@ if errorlevel 1 goto :fail
 
 echo [3/5] Installing web dependencies...
 pushd "%ROOT%web"
-if not exist "node_modules" (
+set "INSTALL_WEB_DEPS=0"
+if not exist "node_modules" set "INSTALL_WEB_DEPS=1"
+if not exist "node_modules\\vite\\package.json" set "INSTALL_WEB_DEPS=1"
+if not exist "node_modules\\typescript\\package.json" set "INSTALL_WEB_DEPS=1"
+if "!INSTALL_WEB_DEPS!"=="1" (
+  echo [INFO] Missing web dependencies detected. Installing...
   call npm install
   if errorlevel 1 (
     popd
