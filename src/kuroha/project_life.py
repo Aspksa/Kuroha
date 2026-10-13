@@ -6,6 +6,7 @@ import subprocess
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from collections.abc import Callable
 from typing import Any
 
 
@@ -47,8 +48,13 @@ def _metric(icon: str, title: str, value: str, detail: str = "", progress: float
 
 
 class ProjectLifeService:
-    def __init__(self, project_root: Path) -> None:
+    def __init__(
+        self,
+        project_root: Path,
+        fetch_json: Callable[[str], Any] | None = None,
+    ) -> None:
         self.project_root = project_root.resolve()
+        self.fetch_json = fetch_json
 
     def _files(self) -> list[Path]:
         result: list[Path] = []
@@ -129,7 +135,9 @@ class ProjectLifeService:
             peak_hour, _ = hour_counts.most_common(1)[0] if hour_counts else (0, 0)
 
             return {
+                "source": "git",
                 "commits": commits,
+                "last_commit_at": max(dates).isoformat() if dates else None,
                 "age_days": age_days,
                 "first_commit": first.date().isoformat() if first else None,
                 "added": added,
@@ -148,6 +156,99 @@ class ProjectLifeService:
                 "active_days": len(active_days),
             }
         except (OSError, subprocess.SubprocessError, ValueError):
+            return {}
+
+    def _github_history(self) -> dict[str, Any]:
+        if self.fetch_json is None:
+            return {}
+
+        try:
+            rows: list[tuple[datetime, str]] = []
+            for page in range(1, 11):
+                payload = self.fetch_json(
+                    "https://api.github.com/repos/Aspksa/Kuroha/commits"
+                    f"?sha=main&per_page=100&page={page}"
+                )
+                if not isinstance(payload, list):
+                    break
+                for item in payload:
+                    commit = item.get("commit", {}) if isinstance(item, dict) else {}
+                    author = commit.get("author", {}) if isinstance(commit, dict) else {}
+                    date_value = author.get("date") if isinstance(author, dict) else None
+                    message = commit.get("message", "") if isinstance(commit, dict) else ""
+                    if not date_value:
+                        continue
+                    rows.append(
+                        (
+                            datetime.fromisoformat(str(date_value).replace("Z", "+00:00")),
+                            str(message).splitlines()[0],
+                        )
+                    )
+                if len(payload) < 100:
+                    break
+
+            if not rows:
+                return {}
+
+            dates = [row[0] for row in rows]
+            subjects = [row[1] for row in rows]
+            commits = len(rows)
+            first = min(dates)
+            now = datetime.now(timezone.utc)
+            age_days = max(1, (now - first.astimezone(timezone.utc)).days + 1)
+            day_counts = Counter(date.date().isoformat() for date in dates)
+            hour_counts = Counter(date.hour for date in dates)
+            weekend = sum(1 for date in dates if date.weekday() >= 5)
+            night = sum(1 for date in dates if 0 <= date.hour < 6)
+            russian = sum(1 for subject in subjects if re.search(r"[А-Яа-яЁё]", subject))
+            fixes = sum(
+                1
+                for subject in subjects
+                if re.search(r"\b(fix|bug|hotfix|исправ)", subject, re.I)
+            )
+            sorted_dates = sorted(date.astimezone(timezone.utc) for date in dates)
+            gaps = [
+                (right - left).total_seconds() / 60
+                for left, right in zip(sorted_dates, sorted_dates[1:])
+            ]
+            median_gap = int(statistics.median(gaps)) if gaps else 0
+            active_days = sorted(set(date.date() for date in dates))
+            streak = 0
+            if active_days:
+                streak = 1
+                for previous, current in zip(
+                    reversed(active_days[:-1]),
+                    reversed(active_days[1:]),
+                ):
+                    if (current - previous).days == 1:
+                        streak += 1
+                    else:
+                        break
+            best_day, best_day_count = day_counts.most_common(1)[0]
+            peak_hour, _ = hour_counts.most_common(1)[0]
+
+            return {
+                "source": "github",
+                "commits": commits,
+                "age_days": age_days,
+                "first_commit": first.date().isoformat(),
+                "last_commit_at": max(dates).isoformat(),
+                "added": 0,
+                "deleted": 0,
+                "hot_file": "требуется локальная Git-история",
+                "hot_edits": 0,
+                "best_day": best_day,
+                "best_day_count": best_day_count,
+                "weekend": weekend,
+                "night": night,
+                "russian": russian,
+                "fixes": fixes,
+                "median_gap": median_gap,
+                "peak_hour": peak_hour,
+                "streak": streak,
+                "active_days": len(active_days),
+            }
+        except Exception:
             return {}
 
     def collect(self) -> dict[str, Any]:
@@ -223,6 +324,8 @@ class ProjectLifeService:
                 color_values.update(re.findall(r"#[0-9a-fA-F]{3,8}\b", text))
 
         history = self._git_history()
+        if not history:
+            history = self._github_history()
         largest = max(line_counts, default=(0, "—"))
         smallest = min((item for item in line_counts if item[0] > 0), default=(0, "—"))
         avg_file = int(total_lines / len(line_counts)) if line_counts else 0
@@ -299,7 +402,14 @@ class ProjectLifeService:
 
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "source": "git+files" if history else "files",
+            "source": (
+                "git+files"
+                if history.get("source") == "git"
+                else "github+files"
+                if history.get("source") == "github"
+                else "files"
+            ),
+            "last_commit_at": history.get("last_commit_at"),
             "commits": commits,
             "age_days": age_days,
             "files": len(files),
