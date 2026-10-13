@@ -33,10 +33,10 @@ beforeEach(() => {
   window.history.pushState({}, "", "/home");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.6.2", environment: "test" },
+    health: { status: "ok", version: "0.7.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.6.2",
+      version: "0.7.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
@@ -82,7 +82,7 @@ beforeEach(() => {
   });
   api.getLogs.mockResolvedValue([]);
   api.getUpdateStatus.mockResolvedValue({
-    current_version: "0.6.2",
+    current_version: "0.7.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -95,7 +95,7 @@ beforeEach(() => {
     checked_at: "2026-10-13T00:00:00Z",
   });
   api.prepareUpdate.mockResolvedValue({
-    current_version: "0.6.2",
+    current_version: "0.7.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -168,7 +168,7 @@ describe("App", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/update"));
     expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
-    expect(screen.getByText("0.6.2")).toBeInTheDocument();
+    expect(screen.getByText("0.7.0")).toBeInTheDocument();
   });
 
   it("can rename and reorder navigation items", async () => {
