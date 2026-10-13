@@ -85,6 +85,13 @@ jobs:
           & "$target\.venv-ci\Scripts\python.exe" -m pip install --disable-pip-version-check -e "$target"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Validate START quoting from Cyrillic path
+        shell: powershell
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "Куроха тест"
+          cmd /c start "" /wait /D "$target" "$target\.venv-ci\Scripts\python.exe" -c "import sys; print(sys.executable)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 
   e2e:
     runs-on: ubuntu-latest
