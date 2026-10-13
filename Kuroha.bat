@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+chcp 65001 >nul
 cd /d "%~dp0"
 
 set "ROOT=%~dp0"
@@ -8,6 +9,9 @@ set "API_PORT=8000"
 set "WEB_PORT=5173"
 set "PIP_CACHE_DIR=%ROOT%.cache\pip"
 set "npm_config_cache=%ROOT%.cache\npm"
+set "PYTHONUTF8=1"
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONLEGACYWINDOWSSTDIO="
 
 if /I "%~1"=="--check" set "CHECK_ONLY=1"
 
@@ -28,25 +32,9 @@ if not exist "%ROOT%web\package.json" (
   goto :fail
 )
 
-set "PYTHON_CMD="
+call :select_python
+if errorlevel 1 goto :fail
 
-where py >nul 2>nul
-if not errorlevel 1 (
-  set "PYTHON_CMD=py -3"
-  goto :python_found
-)
-
-where python >nul 2>nul
-if not errorlevel 1 (
-  set "PYTHON_CMD=python"
-  goto :python_found
-)
-
-echo [ERROR] Python 3 was not found in PATH.
-echo Install Python 3.11 or newer and try again.
-goto :fail
-
-:python_found
 where node >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] Node.js was not found in PATH.
@@ -72,28 +60,29 @@ if "%CHECK_ONLY%"=="1" (
   call :find_free_port 5173 WEB_PORT
   if errorlevel 1 goto :fail
   echo [OK] Kuroha launcher prerequisites are available.
+  echo [OK] Python: !PYTHON_VERSION!
   echo [OK] API port candidate: !API_PORT!
   echo [OK] Web port candidate: !WEB_PORT!
-  %PYTHON_CMD% --version
+  call !PYTHON_CMD! --version
   node --version
   npm --version
   exit /b 0
 )
 
 if exist "%ROOT%.venv\Scripts\python.exe" (
-  "%ROOT%.venv\Scripts\python.exe" --version >nul 2>nul
+  "%ROOT%.venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,16) else 1)" >nul 2>nul
   if errorlevel 1 (
-    echo [1/5] Existing virtual environment is not portable. Recreating it...
+    echo [1/5] Existing virtual environment is incompatible or not portable. Recreating it...
     rmdir /s /q "%ROOT%.venv"
   )
 )
 
 if not exist "%ROOT%.venv\Scripts\python.exe" (
-  echo [1/5] Creating Python virtual environment on this drive...
-  %PYTHON_CMD% -m venv "%ROOT%.venv"
+  echo [1/5] Creating Python virtual environment with !PYTHON_VERSION!...
+  call !PYTHON_CMD! -m venv "%ROOT%.venv"
   if errorlevel 1 goto :fail
 ) else (
-  echo [1/5] Python virtual environment found.
+  echo [1/5] Compatible Python virtual environment found.
 )
 
 echo [2/5] Installing Kuroha Python dependencies...
@@ -130,8 +119,8 @@ echo       API: !API_PORT!
 echo       Web: !WEB_PORT!
 
 echo [5/5] Starting Kuroha from "%ROOT%"...
-start "Kuroha API (!API_PORT!)" /D "%ROOT%" cmd /k ""%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!"
-start "Kuroha Web (!WEB_PORT!)" /D "%ROOT%web" cmd /k "set VITE_API_TARGET=http://127.0.0.1:!API_PORT!&& npm run dev -- --host 127.0.0.1 --port !WEB_PORT!"
+start "Kuroha API (!API_PORT!)" /D "%ROOT%" cmd /k "chcp 65001 >nul && set PYTHONUTF8=1 && set PYTHONIOENCODING=utf-8 && ""%ROOT%.venv\Scripts\python.exe"" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!"
+start "Kuroha Web (!WEB_PORT!)" /D "%ROOT%web" cmd /k "chcp 65001 >nul && set VITE_API_TARGET=http://127.0.0.1:!API_PORT!&& npm run dev -- --host 127.0.0.1 --port !WEB_PORT!"
 
 timeout /t 2 /nobreak >nul
 start "" "http://127.0.0.1:!WEB_PORT!"
@@ -142,6 +131,39 @@ echo API: http://127.0.0.1:!API_PORT!
 echo Web: http://127.0.0.1:!WEB_PORT!
 echo.
 exit /b 0
+
+:select_python
+set "PYTHON_CMD="
+set "PYTHON_VERSION="
+
+where py >nul 2>nul
+if not errorlevel 1 (
+  for %%V in (3.15 3.14 3.13 3.12 3.11 3.10) do (
+    py -%%V -c "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,16) else 1)" >nul 2>nul
+    if not errorlevel 1 if not defined PYTHON_CMD (
+      set "PYTHON_CMD=py -%%V"
+      set "PYTHON_VERSION=Python %%V"
+    )
+  )
+)
+
+if defined PYTHON_CMD exit /b 0
+
+where python >nul 2>nul
+if not errorlevel 1 (
+  for /f "usebackq delims=" %%V in (`python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"`) do set "DETECTED_PYTHON=%%V"
+  python -c "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,16) else 1)" >nul 2>nul
+  if not errorlevel 1 (
+    set "PYTHON_CMD=python"
+    set "PYTHON_VERSION=Python !DETECTED_PYTHON!"
+    exit /b 0
+  )
+)
+
+echo [ERROR] No supported Python was found.
+echo Kuroha supports Python 3.10 through 3.15.
+echo Install one of these versions and try again.
+exit /b 1
 
 :find_free_port
 setlocal
@@ -157,5 +179,5 @@ exit /b 0
 :fail
 echo.
 echo Kuroha failed to start.
-pause
+if not "%CHECK_ONLY%"=="1" pause
 exit /b 1

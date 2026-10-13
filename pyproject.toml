@@ -7,7 +7,7 @@ name = "kuroha"
 version = "0.1.0"
 description = "Kuroha core and API"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10,<3.16"
 dependencies = [
   "fastapi>=0.115,<1",
   "pydantic>=2.9,<3",
@@ -29,5 +29,5 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 100

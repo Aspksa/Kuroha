@@ -8,14 +8,27 @@ on:
 jobs:
   python:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install -e ".[dev]"
-      - run: ruff check .
-      - run: pytest
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m ruff check .
 
   web:
     runs-on: ubuntu-latest
@@ -36,10 +49,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Validate Kuroha.bat
+      - name: Validate launcher in repository path
         shell: cmd
         run: Kuroha.bat --check
+      - name: Validate launcher from Cyrillic path
+        shell: powershell
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "Куроха тест"
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item -Path ".\*" -Destination $target -Recurse -Force
+          & "$target\Kuroha.bat" --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
