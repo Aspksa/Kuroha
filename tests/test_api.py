@@ -1,45 +1,76 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
-from kuroha.app import app
-
-client = TestClient(app)
-
-
-def test_health() -> None:
-    response = client.get("/api/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok", "version": "0.1.0"}
+from kuroha.app import create_app
+from kuroha.config import Settings
 
 
-def test_chat_reuses_session() -> None:
-    first = client.post("/api/chat", json={"message": "ping"})
-    assert first.status_code == 200
-    payload = first.json()
-    assert payload["reply"] == "pong"
-
-    second = client.post(
-        "/api/chat",
-        json={"message": "/history", "session_id": payload["session_id"]},
+def build_client(tmp_path: Path, *, max_request_bytes: int = 1024 * 1024) -> TestClient:
+    settings = Settings(
+        environment="test",
+        host="127.0.0.1",
+        port=8000,
+        data_dir=tmp_path,
+        log_level="WARNING",
+        cors_origins=("http://localhost:5173",),
+        max_request_bytes=max_request_bytes,
     )
-    assert second.status_code == 200
-    assert second.json()["reply"] == "This session contains 2 user message(s)."
+    return TestClient(create_app(settings))
 
 
-def test_chat_preserves_cyrillic_utf8() -> None:
-    message = "Привет, Куроха! Проверка: ёжик, Владивосток, мир."
-    response = client.post("/api/chat", json={"message": message})
+def test_health_and_readiness(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        health = client.get("/api/v1/health")
+        assert health.status_code == 200
+        assert health.json() == {
+            "status": "ok",
+            "version": "0.2.0",
+            "environment": "test",
+        }
 
-    assert response.status_code == 200
-    assert response.json()["reply"] == f"Kuroha received: {message}"
-
-    body = response.content.decode("utf-8")
-    assert "Привет, Куроха!" in body
-    assert "ёжик" in body
+        ready = client.get("/api/v1/ready")
+        assert ready.status_code == 200
+        assert ready.json() == {"ready": True}
 
 
-def test_chat_preserves_mixed_unicode() -> None:
-    message = "Русский + English + 日本語 + emoji 🌙"
-    response = client.post("/api/chat", json={"message": message})
+def test_legacy_api_alias_remains_available(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        response = client.get("/api/info")
+        assert response.status_code == 200
+        assert response.json()["api_version"] == "v1"
 
-    assert response.status_code == 200
-    assert response.json()["reply"] == f"Kuroha received: {message}"
+
+def test_settings_persist_in_sqlite(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        initial = client.get("/api/v1/settings")
+        assert initial.json() == {"site_name": "Kuroha", "theme": "dark"}
+
+        updated = client.put(
+            "/api/v1/settings",
+            json={"site_name": "Куроха", "theme": "light"},
+        )
+        assert updated.status_code == 200
+        assert updated.json() == {"site_name": "Куроха", "theme": "light"}
+
+    with build_client(tmp_path) as client:
+        persisted = client.get("/api/v1/settings")
+        assert persisted.json() == {"site_name": "Куроха", "theme": "light"}
+
+
+def test_validation_error_has_stable_shape(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        response = client.put("/api/v1/settings", json={"site_name": ""})
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "validation_error"
+
+
+def test_request_size_limit(tmp_path: Path) -> None:
+    with build_client(tmp_path, max_request_bytes=32) as client:
+        response = client.put(
+            "/api/v1/settings",
+            content=b"x" * 64,
+            headers={"Content-Type": "application/json"},
+        )
+        assert response.status_code == 413
+        assert response.json()["error"]["code"] == "request_too_large"

@@ -1,22 +1,30 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
-class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
-    session_id: str | None = Field(default=None, max_length=128)
-
-
-class ChatResponse(BaseModel):
-    reply: str
-    session_id: str
-
-
 class HealthResponse(BaseModel):
-    status: str
+    status: Literal["ok"]
     version: str
+    environment: str
+
+
+class ReadyResponse(BaseModel):
+    ready: bool
 
 
 class InfoResponse(BaseModel):
     name: str
     version: str
+    api_version: str
     capabilities: list[str]
+
+
+class PublicSettings(BaseModel):
+    site_name: str
+    theme: Literal["dark", "light"]
+
+
+class SettingsUpdate(BaseModel):
+    site_name: str | None = Field(default=None, min_length=1, max_length=80)
+    theme: Literal["dark", "light"] | None = None
