@@ -17,6 +17,9 @@ const api = vi.hoisted(() => ({
   cleanupStorage: vi.fn(),
   clearLogs: vi.fn(),
   updateSettings: vi.fn(),
+  getUpdateStatus: vi.fn(),
+  prepareUpdate: vi.fn(),
+  applyUpdate: vi.fn(),
   backupDownloadUrl: vi.fn((id: string) => "/download/" + id),
   logsDownloadUrl: vi.fn(() => "/logs/download"),
 }));
@@ -28,10 +31,10 @@ beforeEach(() => {
   window.history.pushState({}, "", "/overview");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.4.0", environment: "test" },
+    health: { status: "ok", version: "0.5.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.4.0",
+      version: "0.5.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
@@ -66,6 +69,35 @@ beforeEach(() => {
     log_file_count: 0,
   });
   api.getLogs.mockResolvedValue([]);
+  api.getUpdateStatus.mockResolvedValue({
+    current_version: "0.5.0",
+    installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    update_available: true,
+    prepared: false,
+    git_checkout: false,
+    repository_url: "https://github.com/Aspksa/Kuroha",
+    branch: "main",
+    commit_message: "Новая версия",
+    checked_at: "2026-10-13T00:00:00Z",
+  });
+  api.prepareUpdate.mockResolvedValue({
+    current_version: "0.5.0",
+    installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    update_available: true,
+    prepared: true,
+    git_checkout: false,
+    repository_url: "https://github.com/Aspksa/Kuroha",
+    branch: "main",
+    commit_message: "Новая версия",
+    checked_at: "2026-10-13T00:00:00Z",
+  });
+  api.applyUpdate.mockResolvedValue({
+    accepted: true,
+    target_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    message: "Обновление запущено",
+  });
   api.updateSettings.mockImplementation(async (value) => value);
 });
 
@@ -93,6 +125,18 @@ describe("App", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/system"));
     expect(screen.getByText("3.13.0")).toBeInTheDocument();
     expect(screen.getByText("test-platform")).toBeInTheDocument();
+  });
+
+  it("opens the update module from navigation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("Куроха");
+
+    await user.click(screen.getByRole("link", { name: "Обновление" }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/update"));
+    expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
+    expect(screen.getByText("0.5.0")).toBeInTheDocument();
   });
 
   it("shows the first-run wizard when setup is not completed", async () => {

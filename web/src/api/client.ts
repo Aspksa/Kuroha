@@ -7,6 +7,8 @@ import type {
   LogEntry,
   PublicSettings,
   StorageUsage,
+  UpdateApplyResponse,
+  UpdateStatus,
 } from "./types";
 
 export const API_BASE = "/api/v1";
@@ -109,4 +111,17 @@ export function cleanupStorage(keepBackups: number): Promise<CleanupResult> {
     method: "POST",
     body: JSON.stringify({ keep_backups: keepBackups }),
   });
+}
+
+
+export function getUpdateStatus(): Promise<UpdateStatus> {
+  return request<UpdateStatus>("/update/status");
+}
+
+export function prepareUpdate(): Promise<UpdateStatus> {
+  return request<UpdateStatus>("/update/prepare", { method: "POST" });
+}
+
+export function applyUpdate(): Promise<UpdateApplyResponse> {
+  return request<UpdateApplyResponse>("/update/apply", { method: "POST" });
 }

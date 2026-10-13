@@ -31,6 +31,7 @@ import LogsPage from "./pages/LogsPage";
 import OverviewPage from "./pages/OverviewPage";
 import SettingsPage from "./pages/SettingsPage";
 import SystemPage from "./pages/SystemPage";
+import UpdatePage from "./pages/UpdatePage";
 
 const emptyUsage: StorageUsage = {
   database_bytes: 0,
@@ -160,6 +161,7 @@ export default function App() {
           <Route element={<Shell settings={settings} health={health} />}>
             <Route path="/overview" element={<OverviewPage info={info} diagnostics={diagnostics} backups={backups} />} />
             <Route path="/system" element={<SystemPage health={health} diagnostics={diagnostics} info={info} />} />
+            <Route path="/update" element={<UpdatePage />} />
             <Route
               path="/settings"
               element={

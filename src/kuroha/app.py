@@ -19,12 +19,14 @@ from kuroha.security import (
     StaticCacheMiddleware,
 )
 from kuroha.storage import SQLiteStore
+from kuroha.updater import UpdateService
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     runtime_settings = settings or Settings.from_env()
     configure_logging(runtime_settings.log_level, runtime_settings.data_dir)
     store = SQLiteStore(runtime_settings.database_path)
+    updater = UpdateService(runtime_settings.project_root, runtime_settings.data_dir)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -39,6 +41,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = runtime_settings
     app.state.store = store
+    app.state.updater = updater
 
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(StaticCacheMiddleware)

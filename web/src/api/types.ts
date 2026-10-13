@@ -62,3 +62,23 @@ export type CleanupResult = {
   removed_log_files: number;
   freed_bytes: number;
 };
+
+
+export type UpdateStatus = {
+  current_version: string;
+  installed_sha: string | null;
+  remote_sha: string;
+  update_available: boolean;
+  prepared: boolean;
+  git_checkout: boolean;
+  repository_url: string;
+  branch: string;
+  commit_message: string;
+  checked_at: string;
+};
+
+export type UpdateApplyResponse = {
+  accepted: boolean;
+  target_sha: string;
+  message: string;
+};

@@ -79,3 +79,22 @@ class CleanupResult(BaseModel):
     removed_backups: int
     removed_log_files: int
     freed_bytes: int
+
+
+class UpdateStatus(BaseModel):
+    current_version: str
+    installed_sha: str | None
+    remote_sha: str
+    update_available: bool
+    prepared: bool
+    git_checkout: bool
+    repository_url: str
+    branch: str
+    commit_message: str
+    checked_at: str
+
+
+class UpdateApplyResponse(BaseModel):
+    accepted: bool
+    target_sha: str
+    message: str

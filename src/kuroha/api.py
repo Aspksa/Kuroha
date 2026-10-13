@@ -17,8 +17,11 @@ from kuroha.models import (
     ReadyResponse,
     SettingsUpdate,
     StorageUsage,
+    UpdateApplyResponse,
+    UpdateStatus,
 )
 from kuroha.storage import SQLiteStore
+from kuroha.updater import UpdateService
 
 
 router = APIRouter()
@@ -26,6 +29,10 @@ router = APIRouter()
 
 def _store(request: Request) -> SQLiteStore:
     return request.app.state.store
+
+
+def _updater(request: Request) -> UpdateService:
+    return request.app.state.updater
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -65,6 +72,7 @@ def info() -> InfoResponse:
             "migrations",
             "pwa",
             "desktop-ready",
+            "self-update",
         ],
     )
 
@@ -160,6 +168,38 @@ def storage_usage(request: Request) -> StorageUsage:
 @router.post("/storage/cleanup", response_model=CleanupResult)
 def cleanup_storage(payload: CleanupRequest, request: Request) -> CleanupResult:
     return CleanupResult.model_validate(_store(request).cleanup_storage(payload.keep_backups))
+
+
+@router.get("/update/status", response_model=UpdateStatus)
+def update_status(request: Request) -> UpdateStatus:
+    try:
+        return UpdateStatus.model_validate(_updater(request).check())
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Не удалось проверить обновления GitHub: {exc}",
+        ) from exc
+
+
+@router.post("/update/prepare", response_model=UpdateStatus)
+def prepare_update(request: Request) -> UpdateStatus:
+    try:
+        return UpdateStatus.model_validate(_updater(request).prepare())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Не удалось скачать обновление GitHub: {exc}",
+        ) from exc
+
+
+@router.post("/update/apply", response_model=UpdateApplyResponse, status_code=202)
+def apply_update(request: Request) -> UpdateApplyResponse:
+    try:
+        return UpdateApplyResponse.model_validate(_updater(request).apply())
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.options("/backups/import", include_in_schema=False)

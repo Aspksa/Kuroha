@@ -133,3 +133,23 @@ Browser-specific/native functionality is isolated behind web/src/platform/runtim
 ### End-to-end tests
 
 Playwright boots the production FastAPI + built React site in CI and validates the setup wizard, real URL routing, diagnostics, backup creation and mobile navigation.
+
+
+## Модуль обновления
+
+В меню Kuroha доступен раздел **Обновление**. Он использует фиксированный источник
+`https://github.com/Aspksa/Kuroha` и канал `main`.
+
+Порядок обновления:
+
+1. Kuroha получает SHA текущего `main` через GitHub API.
+2. Архив скачивается по конкретному неизменяемому SHA, а не по плавающей ветке.
+3. Архив проверяется и распаковывается в `data/updates/staged`.
+4. После подтверждения отдельный helper сохраняет резервную копию текущего исходного кода,
+   заменяет управляемые файлы проекта и записывает установленный SHA.
+5. На Windows автоматически запускается новый `Kuroha.bat`.
+
+Во время обновления сохраняются `data/`, `.env` и `.venv`. Папки
+`web/node_modules` и `web/dist` создаются заново через launcher. Для обычного Git-клона
+автоустановка отключена, чтобы не повредить рабочее дерево; в таком случае используется
+`git pull`.
