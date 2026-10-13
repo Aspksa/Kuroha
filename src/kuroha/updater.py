@@ -207,14 +207,16 @@ class UpdateService:
             "remote_sha": remote_sha,
             "update_available": installed_sha != remote_sha,
             "prepared": bool(prepared and prepared.get("sha") == remote_sha),
+            "git_checkout": (self.project_root / ".git").exists(),
             "repository_url": REPOSITORY_URL,
             "branch": BRANCH,
             "commit_message": str(commit.get("message", "")).splitlines()[0],
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
-    def _download_archive(self, destination: Path) -> None:
-        with urllib.request.urlopen(self._request(ARCHIVE_URL), timeout=30) as response:
+    def _download_archive(self, destination: Path, sha: str) -> None:
+        archive_url = f"https://github.com/{REPOSITORY}/archive/{sha}.zip"
+        with urllib.request.urlopen(self._request(archive_url), timeout=30) as response:
             total = 0
             with destination.open("wb") as output:
                 while chunk := response.read(1024 * 1024):
@@ -240,7 +242,7 @@ class UpdateService:
 
         with tempfile.TemporaryDirectory(dir=self.update_dir) as temp_dir:
             archive_path = Path(temp_dir) / "update.zip"
-            self._download_archive(archive_path)
+            self._download_archive(archive_path, remote_sha)
             with zipfile.ZipFile(archive_path) as archive:
                 total_size = sum(item.file_size for item in archive.infolist())
                 if total_size > MAX_EXTRACTED_BYTES:
@@ -277,6 +279,11 @@ class UpdateService:
         return {**status, "prepared": True}
 
     def apply(self) -> dict[str, Any]:
+        if (self.project_root / ".git").exists():
+            raise ValueError(
+                "Автообновление отключено для Git-клона. Используйте git pull."
+            )
+
         prepared = self._prepared()
         if not prepared:
             raise ValueError("обновление сначала нужно подготовить")

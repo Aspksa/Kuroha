@@ -70,6 +70,7 @@ export type UpdateStatus = {
   remote_sha: string;
   update_available: boolean;
   prepared: boolean;
+  git_checkout: boolean;
   repository_url: string;
   branch: string;
   commit_message: string;

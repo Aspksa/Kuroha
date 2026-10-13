@@ -113,7 +113,14 @@ export default function UpdatePage() {
                   перед заменой сохраняется в <code>data/updates/backups</code>.
                 </p>
 
-                {!status.installed_sha && (
+                {status.git_checkout && (
+                  <p className="update-note">
+                    Обнаружен Git-клон. Автоустановка из интерфейса отключена, чтобы не
+                    изменять рабочее дерево. Для такого проекта используйте <code>git pull</code>.
+                  </p>
+                )}
+
+                {!status.installed_sha && !status.git_checkout && (
                   <p className="update-note">
                     Эта установка ещё не имеет зафиксированной GitHub-ревизии. Первая
                     синхронизация скачает текущий <code>main</code> и запомнит его SHA.
@@ -121,7 +128,7 @@ export default function UpdatePage() {
                 )}
 
                 <div className="update-actions">
-                  {status.update_available && !status.prepared && (
+                  {status.update_available && !status.prepared && !status.git_checkout && (
                     <Button
                       kind="primary"
                       disabled={phase !== "idle"}
@@ -130,7 +137,7 @@ export default function UpdatePage() {
                       Скачать обновление
                     </Button>
                   )}
-                  {status.prepared && (
+                  {status.prepared && !status.git_checkout && (
                     <Button
                       kind="primary"
                       disabled={phase !== "idle"}

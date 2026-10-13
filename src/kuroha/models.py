@@ -87,6 +87,7 @@ class UpdateStatus(BaseModel):
     remote_sha: str
     update_available: bool
     prepared: bool
+    git_checkout: bool
     repository_url: str
     branch: str
     commit_message: str
