@@ -30,13 +30,13 @@ vi.mock("./api/client", () => api);
 
 beforeEach(() => {
   localStorage.setItem(SETUP_KEY, "1");
-  window.history.pushState({}, "", "/overview");
+  window.history.pushState({}, "", "/home");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.6.2", environment: "test" },
+    health: { status: "ok", version: "0.7.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.6.2",
+      version: "0.7.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
@@ -61,7 +61,7 @@ beforeEach(() => {
     data_dir: "/kuroha/data",
     database_path: "/kuroha/data/kuroha.db",
     database_size_bytes: 1024,
-    database_schema_version: 2,
+    database_schema_version: 4,
     database_journal_mode: "wal",
     database_integrity: "ok",
     data_dir_writable: true,
@@ -82,7 +82,7 @@ beforeEach(() => {
   });
   api.getLogs.mockResolvedValue([]);
   api.getUpdateStatus.mockResolvedValue({
-    current_version: "0.6.2",
+    current_version: "0.7.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -95,7 +95,7 @@ beforeEach(() => {
     checked_at: "2026-10-13T00:00:00Z",
   });
   api.prepareUpdate.mockResolvedValue({
-    current_version: "0.6.2",
+    current_version: "0.7.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -128,23 +128,35 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("loads the routed overview", async () => {
+  it("loads the unified home dashboard", async () => {
     render(<App />);
     expect(await screen.findByText("Куроха")).toBeInTheDocument();
-    expect(screen.getByText(/Тихая сила/)).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/overview");
+    expect(screen.getByText(/Спокойный интерфейс/)).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/home");
   });
 
-  it("navigates to system using a real URL", async () => {
+  it("keeps system information on the unified home page", async () => {
     const user = userEvent.setup();
     render(<App />);
     await screen.findByText("Куроха");
 
-    await user.click(screen.getByRole("link", { name: "Система" }));
+    await user.click(screen.getByRole("link", { name: "Главная" }));
 
-    await waitFor(() => expect(window.location.pathname).toBe("/system"));
+    await waitFor(() => expect(window.location.pathname).toBe("/home"));
     expect(screen.getByText("3.13.0")).toBeInTheDocument();
     expect(screen.getByText("test-platform")).toBeInTheDocument();
+  });
+
+  it("opens unified data workspace from navigation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("Куроха");
+
+    await user.click(screen.getByRole("link", { name: "Данные" }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/data"));
+    expect(screen.getByRole("button", { name: "Резервные копии" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Журнал" })).toBeInTheDocument();
   });
 
   it("opens the update module from navigation", async () => {
@@ -156,7 +168,20 @@ describe("App", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/update"));
     expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
-    expect(screen.getByText("0.6.2")).toBeInTheDocument();
+    expect(screen.getByText("0.7.0")).toBeInTheDocument();
+  });
+
+  it("can rename and reorder navigation items", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText("Куроха");
+
+    await user.click(screen.getByRole("button", { name: "Настроить меню" }));
+    const input = screen.getByRole("textbox", { name: "Название пункта home" });
+    await user.clear(input);
+    await user.type(input, "Панель");
+
+    expect(screen.getByRole("link", { name: "Панель" })).toBeInTheDocument();
   });
 
   it("shows the first-run wizard when setup is not completed", async () => {

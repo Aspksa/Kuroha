@@ -26,11 +26,9 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import SetupWizard, { SETUP_KEY } from "./components/SetupWizard";
 import Shell from "./components/Shell";
 import { ErrorPanel, LoadingPanel } from "./components/ui";
-import BackupsPage from "./pages/BackupsPage";
-import LogsPage from "./pages/LogsPage";
-import OverviewPage from "./pages/OverviewPage";
+import DashboardPage from "./pages/DashboardPage";
+import DataPage from "./pages/DataPage";
 import SettingsPage from "./pages/SettingsPage";
-import SystemPage from "./pages/SystemPage";
 import UpdatePage from "./pages/UpdatePage";
 
 const emptyUsage: StorageUsage = {
@@ -169,8 +167,25 @@ export default function App() {
 
         <Routes>
           <Route element={<Shell settings={settings} health={health} />}>
-            <Route path="/overview" element={<OverviewPage info={info} diagnostics={diagnostics} backups={backups} />} />
-            <Route path="/system" element={<SystemPage health={health} diagnostics={diagnostics} info={info} />} />
+            <Route path="/home" element={<DashboardPage health={health} info={info} diagnostics={diagnostics} backups={backups} />} />
+            <Route
+              path="/data"
+              element={
+                <DataPage
+                  backups={backups}
+                  usage={usage}
+                  logs={logs}
+                  level={logLevel}
+                  onCreate={createRestorePoint}
+                  onImport={importRestorePoint}
+                  onRestore={restoreRestorePoint}
+                  onCleanup={cleanup}
+                  onLevel={selectLogLevel}
+                  onRefreshLogs={() => loadLogs()}
+                  onClearLogs={clearCurrentLogs}
+                />
+              }
+            />
             <Route path="/update" element={<UpdatePage />} />
             <Route
               path="/settings"
@@ -185,33 +200,12 @@ export default function App() {
                 />
               }
             />
-            <Route
-              path="/backups"
-              element={
-                <BackupsPage
-                  backups={backups}
-                  usage={usage}
-                  onCreate={createRestorePoint}
-                  onImport={importRestorePoint}
-                  onRestore={restoreRestorePoint}
-                  onCleanup={cleanup}
-                />
-              }
-            />
-            <Route
-              path="/logs"
-              element={
-                <LogsPage
-                  logs={logs}
-                  level={logLevel}
-                  onLevel={selectLogLevel}
-                  onRefresh={() => loadLogs()}
-                  onClear={clearCurrentLogs}
-                />
-              }
-            />
-            <Route path="/" element={<Navigate to="/overview" replace />} />
-            <Route path="*" element={<Navigate to="/overview" replace />} />
+            <Route path="/overview" element={<Navigate to="/home" replace />} />
+            <Route path="/system" element={<Navigate to="/home" replace />} />
+            <Route path="/backups" element={<Navigate to="/data" replace />} />
+            <Route path="/logs" element={<Navigate to="/data" replace />} />
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>
