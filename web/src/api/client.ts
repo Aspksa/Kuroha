@@ -11,6 +11,8 @@ import type {
   UpdateBackup,
   UpdateRollbackResponse,
   UpdateStatus,
+  UpdatePreferences,
+  ProjectLife,
 } from "./types";
 
 export const API_BASE = "/api/v1";
@@ -141,4 +143,30 @@ export function rollbackUpdate(filename: string): Promise<UpdateRollbackResponse
     "/update/rollback/" + encodeURIComponent(filename),
     { method: "POST" },
   );
+}
+
+
+export function getUpdatePreferences(): Promise<UpdatePreferences> {
+  return request<UpdatePreferences>("/update/preferences");
+}
+
+export function saveUpdatePreferences(input: {
+  channel: "fresh" | "stable";
+  auto_check: "hourly" | "daily" | "off";
+  token?: string;
+}): Promise<UpdatePreferences> {
+  return request<UpdatePreferences>("/update/preferences", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteUpdateToken(): Promise<UpdatePreferences> {
+  return request<UpdatePreferences>("/update/preferences/token", {
+    method: "DELETE",
+  });
+}
+
+export function getProjectLife(): Promise<ProjectLife> {
+  return request<ProjectLife>("/update/project-life");
 }
