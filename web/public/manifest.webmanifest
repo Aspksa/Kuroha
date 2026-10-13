@@ -1,0 +1,17 @@
+{
+  "name": "Kuroha",
+  "short_name": "Kuroha",
+  "description": "Kuroha local platform foundation",
+  "start_url": "/overview",
+  "display": "standalone",
+  "background_color": "#06050a",
+  "theme_color": "#0d0913",
+  "icons": [
+    {
+      "src": "/kuroha-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

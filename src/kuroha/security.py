@@ -60,9 +60,12 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
         content_length = request.headers.get("content-length")
+        effective_limit = self.max_bytes
+        if request.url.path.endswith("/backups/import"):
+            effective_limit = max(effective_limit, 128 * 1024 * 1024)
         if content_length:
             try:
-                too_large = int(content_length) > self.max_bytes
+                too_large = int(content_length) > effective_limit
             except ValueError:
                 too_large = True
             if too_large:

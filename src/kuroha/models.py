@@ -55,3 +55,27 @@ class DiagnosticsResponse(BaseModel):
     environment: str
     host: str
     port: int
+
+
+class LogEntry(BaseModel):
+    raw: str
+    level: str
+
+
+class StorageUsage(BaseModel):
+    database_bytes: int
+    backups_bytes: int
+    logs_bytes: int
+    total_bytes: int
+    backup_count: int
+    log_file_count: int
+
+
+class CleanupRequest(BaseModel):
+    keep_backups: int = Field(default=5, ge=0, le=100)
+
+
+class CleanupResult(BaseModel):
+    removed_backups: int
+    removed_log_files: int
+    freed_bytes: int

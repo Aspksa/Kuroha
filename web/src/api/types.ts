@@ -42,3 +42,23 @@ export type BackupInfo = {
   created_at: string;
   size_bytes: number;
 };
+
+export type LogEntry = {
+  raw: string;
+  level: string;
+};
+
+export type StorageUsage = {
+  database_bytes: number;
+  backups_bytes: number;
+  logs_bytes: number;
+  total_bytes: number;
+  backup_count: number;
+  log_file_count: number;
+};
+
+export type CleanupResult = {
+  removed_backups: number;
+  removed_log_files: number;
+  freed_bytes: number;
+};

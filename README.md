@@ -100,3 +100,36 @@ The Build portable release GitHub Actions workflow creates Kuroha-portable.zip. 
     web/
       src/          React/TypeScript website
     tests/          API, storage, security and runtime tests
+
+
+## Web application v0.4
+
+The web layer now uses real browser routes:
+
+- /overview
+- /system
+- /backups
+- /logs
+- /settings
+
+Reusable UI components and page modules live under web/src/components and web/src/pages. A first-run setup wizard validates the local environment without deleting data.
+
+### Backup portability
+
+Backups can be created, downloaded as ZIP archives, imported from disk, validated and restored from the Backups page.
+
+### Logs and storage maintenance
+
+The Logs page supports level filtering, refresh, download and clearing. The Backups page shows managed storage usage and can safely keep the newest restore points while cleaning older backups and rotated log files.
+
+### PWA
+
+Kuroha includes a web app manifest, application icon and service worker. Production builds can be installed as a standalone web app by supported browsers.
+
+### Desktop-ready boundary
+
+Browser-specific/native functionality is isolated behind web/src/platform/runtime.ts. A future Tauri or other desktop shell can provide window.__KUROHA_DESKTOP__ without rewriting the page/API architecture.
+
+### End-to-end tests
+
+Playwright boots the production FastAPI + built React site in CI and validates the setup wizard, real URL routing, diagnostics, backup creation and mobile navigation.

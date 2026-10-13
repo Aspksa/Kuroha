@@ -6,6 +6,7 @@ import sqlite3
 import tempfile
 import zipfile
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 from threading import RLock
 from uuid import uuid4
@@ -23,6 +24,7 @@ class SQLiteStore:
     def __init__(self, database_path: Path) -> None:
         self.database_path = database_path
         self.backup_dir = database_path.parent / "backups"
+        self.log_dir = database_path.parent / "logs"
         self._lock = RLock()
 
     def _connect_path(self, path: Path) -> sqlite3.Connection:
@@ -40,6 +42,7 @@ class SQLiteStore:
     def initialize(self) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
         with self._lock, self._connect() as connection:
             migrate(connection)
 
@@ -112,21 +115,16 @@ class SQLiteStore:
                 archive.write(snapshot, arcname="kuroha.db")
                 archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False))
 
-        size_bytes = archive_path.stat().st_size
-        with self._lock, self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO backup_history(id, filename, created_at, size_bytes)
-                VALUES (?, ?, ?, ?)
-                """,
-                (backup_id, archive_path.name, created_at.isoformat(), size_bytes),
-            )
+        return self._backup_info(archive_path)
 
+    def _backup_info(self, archive_path: Path) -> dict[str, str | int]:
+        with zipfile.ZipFile(archive_path) as archive:
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
         return {
-            "id": backup_id,
+            "id": str(manifest["id"]),
             "filename": archive_path.name,
-            "created_at": created_at.isoformat(),
-            "size_bytes": size_bytes,
+            "created_at": str(manifest["created_at"]),
+            "size_bytes": archive_path.stat().st_size,
         }
 
     def list_backups(self) -> list[dict[str, str | int]]:
@@ -136,29 +134,64 @@ class SQLiteStore:
 
         for archive_path in self.backup_dir.glob("*.zip"):
             try:
-                with zipfile.ZipFile(archive_path) as archive:
-                    manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
-                backups.append(
-                    {
-                        "id": str(manifest["id"]),
-                        "filename": archive_path.name,
-                        "created_at": str(manifest["created_at"]),
-                        "size_bytes": archive_path.stat().st_size,
-                    }
-                )
+                backups.append(self._backup_info(archive_path))
             except (KeyError, ValueError, OSError, zipfile.BadZipFile):
                 continue
 
         return sorted(backups, key=lambda item: str(item["created_at"]), reverse=True)
 
-    def restore_backup(self, backup_id: str) -> None:
-        allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
-        if not backup_id or any(char not in allowed for char in backup_id):
-            raise ValueError("invalid backup id")
-
-        archive_path = self.backup_dir / f"{backup_id}.zip"
-        if not archive_path.is_file():
+    def backup_path(self, backup_id: str) -> Path:
+        self._validate_backup_id(backup_id)
+        path = self.backup_dir / f"{backup_id}.zip"
+        if not path.is_file():
             raise FileNotFoundError(backup_id)
+        return path
+
+    def import_backup(self, payload: bytes) -> dict[str, str | int]:
+        if not payload:
+            raise ValueError("backup archive is empty")
+        if len(payload) > 128 * 1024 * 1024:
+            raise ValueError("backup archive is too large")
+
+        created_at = datetime.now(timezone.utc)
+        backup_id = created_at.strftime("%Y%m%dT%H%M%SZ") + "-import-" + uuid4().hex[:8]
+        archive_path = self.backup_dir / f"{backup_id}.zip"
+
+        try:
+            with zipfile.ZipFile(BytesIO(payload)) as archive:
+                names = set(archive.namelist())
+                if {"kuroha.db", "manifest.json"} - names:
+                    raise ValueError("backup archive is incomplete")
+                source_manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+                if int(source_manifest.get("schema_version", 0)) > SCHEMA_VERSION:
+                    raise ValueError("backup uses a newer database schema")
+                database_bytes = archive.read("kuroha.db")
+        except (zipfile.BadZipFile, json.JSONDecodeError, KeyError) as exc:
+            raise ValueError("invalid backup archive") from exc
+
+        with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
+            candidate = Path(temp_dir) / "kuroha.db"
+            candidate.write_bytes(database_bytes)
+            with self._connect_path(candidate) as connection:
+                if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                    raise ValueError("backup database failed integrity check")
+                migrate(connection)
+                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            manifest = {
+                "id": backup_id,
+                "created_at": created_at.isoformat(),
+                "schema_version": SCHEMA_VERSION,
+                "imported": True,
+            }
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as output:
+                output.write(candidate, arcname="kuroha.db")
+                output.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False))
+
+        return self._backup_info(archive_path)
+
+    def restore_backup(self, backup_id: str) -> None:
+        archive_path = self.backup_path(backup_id)
 
         with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
             temp_path = Path(temp_dir)
@@ -198,3 +231,82 @@ class SQLiteStore:
                 os.replace(restored, self.database_path)
 
         self.initialize()
+
+    def read_logs(self, limit: int = 300, level: str | None = None) -> list[dict[str, str]]:
+        log_path = self.log_dir / "kuroha.log"
+        if not log_path.is_file():
+            return []
+
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()[-limit:]
+        entries: list[dict[str, str]] = []
+        for line in reversed(lines):
+            detected = "INFO"
+            for candidate in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+                if f" {candidate} " in line:
+                    detected = candidate
+                    break
+            if level and detected != level.upper():
+                continue
+            entries.append({"raw": line, "level": detected})
+        return entries
+
+    def clear_logs(self) -> int:
+        freed = 0
+        for path in self.log_dir.glob("kuroha.log*"):
+            if path.is_file():
+                freed += path.stat().st_size
+                path.write_text("", encoding="utf-8") if path.name == "kuroha.log" else path.unlink()
+        return freed
+
+    def log_path(self) -> Path:
+        path = self.log_dir / "kuroha.log"
+        path.touch(exist_ok=True)
+        return path
+
+    def storage_usage(self) -> dict[str, int]:
+        backup_files = [path for path in self.backup_dir.glob("*.zip") if path.is_file()]
+        log_files = [path for path in self.log_dir.glob("kuroha.log*") if path.is_file()]
+        database_bytes = self.database_size()
+        backups_bytes = sum(path.stat().st_size for path in backup_files)
+        logs_bytes = sum(path.stat().st_size for path in log_files)
+        return {
+            "database_bytes": database_bytes,
+            "backups_bytes": backups_bytes,
+            "logs_bytes": logs_bytes,
+            "total_bytes": database_bytes + backups_bytes + logs_bytes,
+            "backup_count": len(backup_files),
+            "log_file_count": len(log_files),
+        }
+
+    def cleanup_storage(self, keep_backups: int) -> dict[str, int]:
+        backups = sorted(
+            (path for path in self.backup_dir.glob("*.zip") if path.is_file()),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        removed_backups = 0
+        removed_log_files = 0
+        freed_bytes = 0
+
+        for path in backups[keep_backups:]:
+            freed_bytes += path.stat().st_size
+            path.unlink()
+            removed_backups += 1
+
+        for path in self.log_dir.glob("kuroha.log.*"):
+            if path.is_file():
+                freed_bytes += path.stat().st_size
+                path.unlink()
+                removed_log_files += 1
+
+        return {
+            "removed_backups": removed_backups,
+            "removed_log_files": removed_log_files,
+            "freed_bytes": freed_bytes,
+        }
+
+    @staticmethod
+    def _validate_backup_id(backup_id: str) -> None:
+        allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+        if not backup_id or any(char not in allowed for char in backup_id):
+            raise ValueError("invalid backup id")

@@ -1,18 +1,23 @@
 import type {
   BackupInfo,
+  CleanupResult,
   Diagnostics,
   Health,
   Info,
+  LogEntry,
   PublicSettings,
+  StorageUsage,
 } from "./types";
 
-const API_BASE = "/api/v1";
+export const API_BASE = "/api/v1";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(API_BASE + path, {
     ...init,
     headers: {
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...(init?.body && !(init.body instanceof ArrayBuffer)
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...init?.headers,
     },
   });
@@ -20,20 +25,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let message = "Kuroha API request failed";
     try {
-      const payload = (await response.json()) as {
-        error?: { message?: string };
-      };
+      const payload = (await response.json()) as { error?: { message?: string } };
       message = payload.error?.message ?? message;
     } catch {
-      // Keep the generic message when the response body is not JSON.
+      // Keep generic message for non-JSON responses.
     }
     throw new Error(message + " (" + response.status + ")");
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -62,17 +62,51 @@ export function createBackup(): Promise<BackupInfo> {
   return request<BackupInfo>("/backups", { method: "POST" });
 }
 
+export function importBackup(payload: ArrayBuffer): Promise<BackupInfo> {
+  return request<BackupInfo>("/backups/import", {
+    method: "POST",
+    body: payload,
+    headers: { "Content-Type": "application/zip" },
+  });
+}
+
+export function backupDownloadUrl(id: string): string {
+  return API_BASE + "/backups/" + encodeURIComponent(id) + "/download";
+}
+
 export function restoreBackup(id: string): Promise<void> {
   return request<void>("/backups/" + encodeURIComponent(id) + "/restore", {
     method: "POST",
   });
 }
 
-export function updateSettings(
-  settings: PublicSettings,
-): Promise<PublicSettings> {
+export function updateSettings(settings: PublicSettings): Promise<PublicSettings> {
   return request<PublicSettings>("/settings", {
     method: "PUT",
     body: JSON.stringify(settings),
+  });
+}
+
+export function getLogs(level?: string): Promise<LogEntry[]> {
+  const suffix = level ? "?level=" + encodeURIComponent(level) : "";
+  return request<LogEntry[]>("/logs" + suffix);
+}
+
+export function clearLogs(): Promise<void> {
+  return request<void>("/logs", { method: "DELETE" });
+}
+
+export function logsDownloadUrl(): string {
+  return API_BASE + "/logs/download";
+}
+
+export function getStorageUsage(): Promise<StorageUsage> {
+  return request<StorageUsage>("/storage");
+}
+
+export function cleanupStorage(keepBackups: number): Promise<CleanupResult> {
+  return request<CleanupResult>("/storage/cleanup", {
+    method: "POST",
+    body: JSON.stringify({ keep_backups: keepBackups }),
   });
 }
