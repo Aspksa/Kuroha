@@ -20,7 +20,6 @@ REPOSITORY = "Aspksa/Kuroha"
 BRANCH = "main"
 REPOSITORY_URL = "https://github.com/Aspksa/Kuroha"
 BRANCH_API_URL = f"https://api.github.com/repos/{REPOSITORY}/branches/{BRANCH}"
-ARCHIVE_URL = f"https://github.com/{REPOSITORY}/archive/refs/heads/{BRANCH}.zip"
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXTRACTED_BYTES = 256 * 1024 * 1024
 
