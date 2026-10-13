@@ -10,17 +10,32 @@ Kuroha is a small Python core with a FastAPI HTTP layer and a React/TypeScript w
 - TypeScript
 - Vite
 
-## Windows quick start
+## Windows portable quick start
 
-Install Python 3.11+ and Node.js 20+, then double-click:
+Kuroha can be started directly from a normal folder, another local drive, an external SSD/HDD, or a writable USB drive. The path may contain spaces.
+
+Install Python 3.11+ and Node.js 20+, copy or clone the entire Kuroha folder to the storage device you want, then double-click:
 
 ```text
 Kuroha.bat
 ```
 
-The launcher creates `.venv` when needed, installs Python and web dependencies, starts the API and web development server in separate windows, then opens `http://localhost:5173`.
+The launcher:
 
-To verify launcher prerequisites without installing dependencies or starting Kuroha:
+- always resolves paths relative to its own folder instead of relying on the current drive;
+- creates the Python virtual environment on the same storage device;
+- keeps pip/npm caches inside the Kuroha folder;
+- recreates a stale virtual environment if the folder was moved between machines or drives;
+- installs Python and web dependencies when needed;
+- starts the API and web development server in separate windows;
+- automatically selects the first free API port starting at `8000`;
+- automatically selects the first free web port starting at `5173`;
+- passes the selected API address to the Vite proxy;
+- opens the actual selected web address in the browser.
+
+A writable storage device is required for first-run dependency installation and caches.
+
+To validate prerequisites and free-port discovery without installing dependencies or starting Kuroha:
 
 ```bat
 Kuroha.bat --check
@@ -35,7 +50,7 @@ pip install -e ".[dev]"
 uvicorn kuroha.app:app --reload
 ```
 
-The API is available at `http://localhost:8000`.
+The default API address is `http://localhost:8000`.
 
 ## Run the web app manually
 
@@ -45,7 +60,7 @@ npm install
 npm run dev
 ```
 
-The web app is available at `http://localhost:5173` and proxies `/api` to the local API.
+The default web address is `http://localhost:5173` and proxies `/api` to the local API. Set `VITE_API_TARGET` when the API uses another address.
 
 ## API
 
