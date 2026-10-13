@@ -60,6 +60,12 @@ if errorlevel 1 (
   goto :fail
 )
 
+node -e "process.exit(Number(process.versions.node.split('.')[0]) >= 20 ? 0 : 1)" >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] Node.js 20 or newer is required.
+  goto :fail
+)
+
 where npm >nul 2>nul
 if errorlevel 1 (
   echo [ERROR] npm was not found in PATH.
@@ -154,7 +160,8 @@ if /I "!MODE!"=="production" (
   set "KUROHA_ENV=production"
   set "KUROHA_PORT=!API_PORT!"
   start "Kuroha (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
-  timeout /t 2 /nobreak >nul
+  call :wait_for_http "http://127.0.0.1:!API_PORT!/api/v1/ready"
+  if errorlevel 1 goto :fail
   if "!MINIMIZE_TO_TRAY!"=="1" (
     start "Kuroha Tray" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%ROOT%KurohaTray.ps1" -Url "http://127.0.0.1:!API_PORT!" -Port !API_PORT! -Launcher "%ROOT%Kuroha.bat" -CheckUpdates !CHECK_UPDATES_ON_START!
   )
@@ -165,7 +172,10 @@ if /I "!MODE!"=="production" (
   set "VITE_API_TARGET=http://127.0.0.1:!API_PORT!"
   start "Kuroha API (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   start "Kuroha Web (!WEB_PORT!)" /D "%PROJECT_DIR%\web" cmd /k npm run dev -- --host 127.0.0.1 --port !WEB_PORT!
-  timeout /t 2 /nobreak >nul
+  call :wait_for_http "http://127.0.0.1:!API_PORT!/api/v1/ready"
+  if errorlevel 1 goto :fail
+  call :wait_for_http "http://127.0.0.1:!WEB_PORT!/"
+  if errorlevel 1 goto :fail
   start "" "http://127.0.0.1:!WEB_PORT!"
   echo API: http://127.0.0.1:!API_PORT!
   echo Web: http://127.0.0.1:!WEB_PORT!
@@ -209,6 +219,11 @@ echo [ERROR] No supported Python was found.
 echo Kuroha supports Python 3.10 through 3.15.
 echo Install one of these versions and try again.
 exit /b 1
+
+:wait_for_http
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$url=$args[0]; $deadline=(Get-Date).AddSeconds(30); do { try { $r=Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 300) { exit 0 } } catch {} ; Start-Sleep -Milliseconds 300 } while ((Get-Date) -lt $deadline); Write-Error ('Timed out waiting for ' + $url); exit 1" "%~1"
+if errorlevel 1 echo [ERROR] Kuroha did not become ready: %~1
+exit /b %errorlevel%
 
 :find_free_port
 setlocal
