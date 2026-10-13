@@ -144,7 +144,7 @@ if /I "!MODE!"=="production" (
   start "Kuroha (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   timeout /t 2 /nobreak >nul
   if "!MINIMIZE_TO_TRAY!"=="1" (
-    start "Kuroha Tray" /min powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%KurohaTray.ps1" -Url "http://127.0.0.1:!API_PORT!" -Port !API_PORT! -Launcher "%ROOT%Kuroha.bat" -CheckUpdates !CHECK_UPDATES_ON_START!
+    start "Kuroha Tray" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%ROOT%KurohaTray.ps1" -Url "http://127.0.0.1:!API_PORT!" -Port !API_PORT! -Launcher "%ROOT%Kuroha.bat" -CheckUpdates !CHECK_UPDATES_ON_START!
   )
   if not "!LAUNCH_MINIMIZED!"=="1" start "" "http://127.0.0.1:!API_PORT!"
   echo Web/API: http://127.0.0.1:!API_PORT!
