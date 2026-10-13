@@ -10,7 +10,23 @@ Kuroha is a small Python core with a FastAPI HTTP layer and a React/TypeScript w
 - TypeScript
 - Vite
 
-## Run the API
+## Windows quick start
+
+Install Python 3.11+ and Node.js 20+, then double-click:
+
+```text
+Kuroha.bat
+```
+
+The launcher creates `.venv` when needed, installs Python and web dependencies, starts the API and web development server in separate windows, then opens `http://localhost:5173`.
+
+To verify launcher prerequisites without installing dependencies or starting Kuroha:
+
+```bat
+Kuroha.bat --check
+```
+
+## Run the API manually
 
 ```bash
 python -m venv .venv
@@ -21,7 +37,7 @@ uvicorn kuroha.app:app --reload
 
 The API is available at `http://localhost:8000`.
 
-## Run the web app
+## Run the web app manually
 
 ```bash
 cd web
