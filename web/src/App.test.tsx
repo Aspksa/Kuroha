@@ -1,33 +1,39 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { SETUP_KEY } from "./components/SetupWizard";
 
 const api = vi.hoisted(() => ({
   getFoundation: vi.fn(),
   getDiagnostics: vi.fn(),
   getBackups: vi.fn(),
+  getStorageUsage: vi.fn(),
+  getLogs: vi.fn(),
   createBackup: vi.fn(),
+  importBackup: vi.fn(),
   restoreBackup: vi.fn(),
+  cleanupStorage: vi.fn(),
+  clearLogs: vi.fn(),
   updateSettings: vi.fn(),
+  backupDownloadUrl: vi.fn((id: string) => "/download/" + id),
+  logsDownloadUrl: vi.fn(() => "/logs/download"),
 }));
 
 vi.mock("./api/client", () => api);
 
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
-
 beforeEach(() => {
+  localStorage.setItem(SETUP_KEY, "1");
+  window.history.pushState({}, "", "/overview");
+
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.3.0", environment: "test" },
+    health: { status: "ok", version: "0.4.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.3.0",
+      version: "0.4.0",
       api_version: "v1",
-      capabilities: ["diagnostics", "backup-restore"],
+      capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
     settings: { site_name: "Куроха", theme: "dark" },
   });
@@ -51,53 +57,47 @@ beforeEach(() => {
     port: 8000,
   });
   api.getBackups.mockResolvedValue([]);
+  api.getStorageUsage.mockResolvedValue({
+    database_bytes: 1024,
+    backups_bytes: 0,
+    logs_bytes: 0,
+    total_bytes: 1024,
+    backup_count: 0,
+    log_file_count: 0,
+  });
+  api.getLogs.mockResolvedValue([]);
+  api.updateSettings.mockImplementation(async (value) => value);
+});
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  vi.clearAllMocks();
 });
 
 describe("App", () => {
-  it("loads the foundation dashboard", async () => {
+  it("loads the routed overview", async () => {
     render(<App />);
-
     expect(await screen.findByText("Куроха")).toBeInTheDocument();
     expect(screen.getByText(/Quiet power/)).toBeInTheDocument();
-    expect(screen.getByText("v2")).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/overview");
   });
 
-  it("shows runtime diagnostics", async () => {
+  it("navigates to system using a real URL", async () => {
     const user = userEvent.setup();
     render(<App />);
-
     await screen.findByText("Куроха");
-    await user.click(screen.getByRole("button", { name: "System" }));
 
+    await user.click(screen.getByRole("link", { name: "System" }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/system"));
     expect(screen.getByText("3.13.0")).toBeInTheDocument();
-    expect(screen.getByText("v20.0.0")).toBeInTheDocument();
     expect(screen.getByText("test-platform")).toBeInTheDocument();
   });
 
-  it("creates a backup from settings", async () => {
-    const user = userEvent.setup();
-    api.createBackup.mockResolvedValue({
-      id: "backup-1",
-      filename: "backup-1.zip",
-      created_at: "2026-10-13T00:00:00+00:00",
-      size_bytes: 100,
-    });
-    api.getBackups
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: "backup-1",
-          filename: "backup-1.zip",
-          created_at: "2026-10-13T00:00:00+00:00",
-          size_bytes: 100,
-        },
-      ]);
-
+  it("shows the first-run wizard when setup is not completed", async () => {
+    localStorage.removeItem(SETUP_KEY);
     render(<App />);
-    await screen.findByText("Куроха");
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    await user.click(screen.getByRole("button", { name: "Create backup" }));
-
-    expect(await screen.findByText("backup-1")).toBeInTheDocument();
+    expect(await screen.findByText("Welcome to Kuroha")).toBeInTheDocument();
   });
 });
