@@ -42,12 +42,16 @@ class SQLiteStore:
 
     def _connect_path(self, path: Path) -> sqlite3.Connection:
         connection = sqlite3.connect(path, timeout=5)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = NORMAL")
-        return connection
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = NORMAL")
+            return connection
+        except Exception:
+            connection.close()
+            raise
 
     def _connect(self) -> sqlite3.Connection:
         return self._connect_path(self.database_path)
