@@ -17,6 +17,12 @@ from kuroha.migrations import SCHEMA_VERSION, migrate
 DEFAULT_SETTINGS = {
     "site_name": "Kuroha",
     "theme": "dark",
+    "language": "ru",
+    "autostart_windows": "false",
+    "launch_minimized": "false",
+    "minimize_to_tray": "true",
+    "check_updates_on_start": "true",
+    "preferred_api_port": "8000",
 }
 
 
@@ -75,7 +81,7 @@ class SQLiteStore:
             ).fetchall()
         return {str(row["key"]): str(row["value"]) for row in rows}
 
-    def update_settings(self, values: dict[str, str]) -> dict[str, str]:
+    def update_settings(self, values: dict[str, object]) -> dict[str, str]:
         unknown = set(values) - set(DEFAULT_SETTINGS)
         if unknown:
             names = ", ".join(sorted(unknown))
@@ -88,7 +94,7 @@ class SQLiteStore:
                     INSERT INTO app_settings(key, value) VALUES (?, ?)
                     ON CONFLICT(key) DO UPDATE SET value = excluded.value
                     """,
-                    (key, value),
+                    (key, str(value).lower() if isinstance(value, bool) else str(value)),
                 )
         return self.get_settings()
 
