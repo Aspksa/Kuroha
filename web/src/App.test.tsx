@@ -58,7 +58,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Куроха")).toBeInTheDocument();
-    expect(screen.getByText("Stable shell before intelligence.")).toBeInTheDocument();
+    expect(screen.getByText(/Quiet power/)).toBeInTheDocument();
     expect(screen.getByText("v2")).toBeInTheDocument();
   });
 
