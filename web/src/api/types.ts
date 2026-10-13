@@ -127,6 +127,7 @@ export type ProjectLifeSection = {
 export type ProjectLife = {
   generated_at: string;
   source: string;
+  last_commit_at: string | null;
   commits: number;
   age_days: number;
   files: number;
