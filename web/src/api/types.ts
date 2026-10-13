@@ -83,6 +83,7 @@ export type UpdateStatus = {
   commit_message: string;
   changelog: string[];
   checked_at: string;
+  channel: "fresh" | "stable";
 };
 
 export type UpdateApplyResponse = {
@@ -101,4 +102,37 @@ export type UpdateRollbackResponse = {
   accepted: boolean;
   backup: string;
   message: string;
+};
+
+
+export type UpdatePreferences = {
+  channel: "fresh" | "stable";
+  auto_check: "hourly" | "daily" | "off";
+  token_saved: boolean;
+};
+
+export type ProjectLifeMetric = {
+  icon: string;
+  title: string;
+  value: string;
+  detail: string;
+  progress: number | null;
+};
+
+export type ProjectLifeSection = {
+  title: string;
+  metrics: ProjectLifeMetric[];
+};
+
+export type ProjectLife = {
+  generated_at: string;
+  source: string;
+  commits: number;
+  age_days: number;
+  files: number;
+  code_lines: number;
+  test_files: number;
+  tests: number;
+  languages: Array<{ name: string; lines: number; percent: number }>;
+  sections: ProjectLifeSection[];
 };
