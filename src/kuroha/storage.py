@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 import tempfile
 import zipfile
+from contextlib import closing
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -17,13 +18,6 @@ from kuroha.migrations import SCHEMA_VERSION, migrate
 
 MAX_IMPORTED_DATABASE_BYTES = 128 * 1024 * 1024
 
-
-class ClosingConnection(sqlite3.Connection):
-    def __exit__(self, exc_type, exc_value, traceback):
-        try:
-            return super().__exit__(exc_type, exc_value, traceback)
-        finally:
-            self.close()
 
 
 DEFAULT_SETTINGS = {
@@ -47,7 +41,7 @@ class SQLiteStore:
         self._lock = RLock()
 
     def _connect_path(self, path: Path) -> sqlite3.Connection:
-        connection = sqlite3.connect(path, timeout=5, factory=ClosingConnection)
+        connection = sqlite3.connect(path, timeout=5)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
@@ -62,33 +56,33 @@ class SQLiteStore:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection:
             migrate(connection)
 
     def is_ready(self) -> bool:
         try:
-            with self._connect() as connection:
+            with closing(self._connect()) as connection:
                 return connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"
         except sqlite3.Error:
             return False
 
     def schema_version(self) -> int:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             return int(connection.execute("PRAGMA user_version").fetchone()[0])
 
     def journal_mode(self) -> str:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             return str(connection.execute("PRAGMA journal_mode").fetchone()[0])
 
     def integrity_check(self) -> str:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             return str(connection.execute("PRAGMA integrity_check").fetchone()[0])
 
     def database_size(self) -> int:
         return self.database_path.stat().st_size if self.database_path.exists() else 0
 
     def get_settings(self) -> dict[str, str]:
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection:
             rows = connection.execute(
                 "SELECT key, value FROM app_settings ORDER BY key"
             ).fetchall()
@@ -100,7 +94,7 @@ class SQLiteStore:
             names = ", ".join(sorted(unknown))
             raise ValueError(f"unsupported settings: {names}")
 
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection:
             for key, value in values.items():
                 connection.execute(
                     """
@@ -119,9 +113,9 @@ class SQLiteStore:
 
         with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
             snapshot = Path(temp_dir) / "kuroha.db"
-            with self._lock, self._connect() as source:
+            with self._lock, closing(self._connect()) as source:
                 source.execute("PRAGMA wal_checkpoint(PASSIVE)")
-                with self._connect_path(snapshot) as target:
+                with closing(self._connect_path(snapshot)) as target:
                     source.backup(target)
                     target.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
@@ -200,7 +194,7 @@ class SQLiteStore:
                     with archive.open(database_info, "r") as source, candidate.open("wb") as target:
                         shutil.copyfileobj(source, target, length=1024 * 1024)
 
-                with self._connect_path(candidate) as connection:
+                with closing(self._connect_path(candidate)) as connection:
                     if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                         raise ValueError("backup database failed integrity check")
                     migrate(connection)
@@ -251,7 +245,7 @@ class SQLiteStore:
                     shutil.copyfileobj(source, target, length=1024 * 1024)
 
             restored = temp_path / "kuroha.db"
-            with self._connect_path(restored) as connection:
+            with closing(self._connect_path(restored)) as connection:
                 if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("backup database failed integrity check")
                 migrate(connection)
@@ -259,7 +253,7 @@ class SQLiteStore:
 
             with self._lock:
                 if self.database_path.exists():
-                    with self._connect() as current:
+                    with closing(self._connect()) as current:
                         current.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                     safety = self.database_path.with_suffix(".pre-restore.db")
                     try:
