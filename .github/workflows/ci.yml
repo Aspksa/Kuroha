@@ -77,6 +77,14 @@ jobs:
           & "$target\Kuroha.bat" --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Validate editable install from Cyrillic path
+        shell: powershell
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "Куроха тест"
+          py -3.13 -m venv "$target\.venv-ci"
+          & "$target\.venv-ci\Scripts\python.exe" -m pip install --disable-pip-version-check -e "$target"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 
   e2e:
     runs-on: ubuntu-latest
