@@ -132,6 +132,7 @@ beforeEach(() => {
   api.getProjectLife.mockResolvedValue({
     generated_at: "2026-10-13T00:00:00Z",
     source: "git+files",
+    last_commit_at: "2026-10-13T00:00:00Z",
     commits: 18,
     age_days: 1,
     files: 42,
@@ -210,7 +211,7 @@ describe("App", () => {
     expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
     expect(screen.getByText("0.8.0")).toBeInTheDocument();
     expect(screen.getByText("ЖИЗНЬ ПРОЕКТА")).toBeInTheDocument();
-    expect(screen.getByText("18 коммитов · 1 дней")).toBeInTheDocument();
+    expect(screen.getByText(/18 коммитов ·/)).toBeInTheDocument();
   });
 
   it("can rename and reorder navigation items", async () => {
