@@ -44,6 +44,11 @@ if not exist "%ROOT%web\package.json" (
   goto :fail
 )
 
+if not exist "%ROOT%KurohaTray.ps1" (
+  echo [ERROR] KurohaTray.ps1 was not found.
+  goto :fail
+)
+
 call :select_python
 if errorlevel 1 goto :fail
 
