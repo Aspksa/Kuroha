@@ -18,8 +18,11 @@ from kuroha.models import (
     SettingsUpdate,
     StorageUsage,
     UpdateApplyResponse,
+    UpdateBackup,
+    UpdateRollbackResponse,
     UpdateStatus,
 )
+from kuroha.runtime_controls import set_windows_autostart, write_launcher_config
 from kuroha.storage import SQLiteStore
 from kuroha.updater import UpdateService
 
@@ -73,6 +76,9 @@ def info() -> InfoResponse:
             "pwa",
             "desktop-ready",
             "self-update",
+            "update-rollback",
+            "windows-tray",
+            "application-settings",
         ],
     )
 
@@ -89,7 +95,12 @@ def update_settings(payload: SettingsUpdate, request: Request) -> PublicSettings
         return PublicSettings.model_validate(_store(request).get_settings())
     try:
         current = _store(request).update_settings(values)
-    except ValueError as exc:
+        write_launcher_config(request.app.state.settings.data_dir, current)
+        set_windows_autostart(
+            request.app.state.settings.project_root,
+            current.get("autostart_windows", "false") == "true",
+        )
+    except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PublicSettings.model_validate(current)
 
@@ -198,6 +209,25 @@ def prepare_update(request: Request) -> UpdateStatus:
 def apply_update(request: Request) -> UpdateApplyResponse:
     try:
         return UpdateApplyResponse.model_validate(_updater(request).apply())
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/update/backups", response_model=list[UpdateBackup])
+def update_backups(request: Request) -> list[UpdateBackup]:
+    return [UpdateBackup.model_validate(item) for item in _updater(request).list_backups()]
+
+
+@router.post(
+    "/update/rollback/{filename}",
+    response_model=UpdateRollbackResponse,
+    status_code=202,
+)
+def rollback_update(filename: str, request: Request) -> UpdateRollbackResponse:
+    try:
+        return UpdateRollbackResponse.model_validate(_updater(request).rollback(filename))
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Резервная копия обновления не найдена") from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
