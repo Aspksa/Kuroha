@@ -14,6 +14,12 @@ export type Info = {
 export type PublicSettings = {
   site_name: string;
   theme: "dark" | "light";
+  language: "ru";
+  autostart_windows: boolean;
+  launch_minimized: boolean;
+  minimize_to_tray: boolean;
+  check_updates_on_start: boolean;
+  preferred_api_port: number;
 };
 
 export type Diagnostics = {
@@ -74,11 +80,24 @@ export type UpdateStatus = {
   repository_url: string;
   branch: string;
   commit_message: string;
+  changelog: string[];
   checked_at: string;
 };
 
 export type UpdateApplyResponse = {
   accepted: boolean;
   target_sha: string;
+  message: string;
+};
+
+export type UpdateBackup = {
+  filename: string;
+  created_at: string;
+  size_bytes: number;
+};
+
+export type UpdateRollbackResponse = {
+  accepted: boolean;
+  backup: string;
   message: string;
 };
