@@ -9,9 +9,13 @@ def test_storage_initializes_and_updates(tmp_path: Path) -> None:
     store.initialize()
 
     assert store.is_ready()
-    assert store.schema_version() == 2
+    assert store.schema_version() == 3
     assert store.journal_mode() == "wal"
-    assert store.get_settings() == {"site_name": "Kuroha", "theme": "dark"}
+    settings = store.get_settings()
+    assert settings["site_name"] == "Kuroha"
+    assert settings["theme"] == "dark"
+    assert settings["language"] == "ru"
+    assert settings["minimize_to_tray"] == "true"
 
     result = store.update_settings({"site_name": "Куроха"})
     assert result["site_name"] == "Куроха"
@@ -31,7 +35,7 @@ def test_storage_migrates_existing_v1_database(tmp_path: Path) -> None:
     store = SQLiteStore(database)
     store.initialize()
 
-    assert store.schema_version() == 2
+    assert store.schema_version() == 3
     assert store.get_settings()["site_name"] == "Старая Куроха"
 
     with sqlite3.connect(database) as connection:

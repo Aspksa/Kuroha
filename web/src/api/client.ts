@@ -8,6 +8,8 @@ import type {
   PublicSettings,
   StorageUsage,
   UpdateApplyResponse,
+  UpdateBackup,
+  UpdateRollbackResponse,
   UpdateStatus,
 } from "./types";
 
@@ -124,4 +126,15 @@ export function prepareUpdate(): Promise<UpdateStatus> {
 
 export function applyUpdate(): Promise<UpdateApplyResponse> {
   return request<UpdateApplyResponse>("/update/apply", { method: "POST" });
+}
+
+export function getUpdateBackups(): Promise<UpdateBackup[]> {
+  return request<UpdateBackup[]>("/update/backups");
+}
+
+export function rollbackUpdate(filename: string): Promise<UpdateRollbackResponse> {
+  return request<UpdateRollbackResponse>(
+    "/update/rollback/" + encodeURIComponent(filename),
+    { method: "POST" },
+  );
 }

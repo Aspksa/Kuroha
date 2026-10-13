@@ -9,12 +9,19 @@ set "MODE=production"
 set "CHECK_ONLY=0"
 set "API_PORT=8000"
 set "WEB_PORT=5173"
+set "LAUNCH_MINIMIZED=0"
+set "MINIMIZE_TO_TRAY=1"
+set "CHECK_UPDATES_ON_START=1"
 set "PIP_CACHE_DIR=%ROOT%.cache\pip"
 set "npm_config_cache=%ROOT%.cache\npm"
 set "PYTHONUTF8=1"
 set "PYTHONIOENCODING=utf-8"
 set "PYTHONLEGACYWINDOWSSTDIO="
 set "KUROHA_DATA_DIR=%ROOT%data"
+
+if exist "%ROOT%data\launcher.json" (
+  for /f "tokens=1,* delims==" %%A in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-Content -LiteralPath ''%ROOT%data\launcher.json'' -Raw | ConvertFrom-Json; ''API_PORT='' + $c.preferred_api_port; ''LAUNCH_MINIMIZED='' + [int][bool]$c.launch_minimized; ''MINIMIZE_TO_TRAY='' + [int][bool]$c.minimize_to_tray; ''CHECK_UPDATES_ON_START='' + [int][bool]$c.check_updates_on_start"') do set "%%A=%%B"
+)
 
 if /I "%~1"=="--check" set "CHECK_ONLY=1"
 if /I "%~1"=="--dev" set "MODE=development"
@@ -34,6 +41,11 @@ if not exist "%ROOT%pyproject.toml" (
 
 if not exist "%ROOT%web\package.json" (
   echo [ERROR] web\package.json was not found.
+  goto :fail
+)
+
+if not exist "%ROOT%KurohaTray.ps1" (
+  echo [ERROR] KurohaTray.ps1 was not found.
   goto :fail
 )
 
@@ -60,7 +72,7 @@ if errorlevel 1 (
 )
 
 if "%CHECK_ONLY%"=="1" (
-  call :find_free_port 8000 API_PORT
+  call :find_free_port !API_PORT! API_PORT
   if errorlevel 1 goto :fail
   echo [OK] Kuroha launcher prerequisites are available.
   echo [OK] Python: !PYTHON_VERSION!
@@ -131,7 +143,10 @@ if /I "!MODE!"=="production" (
   set "KUROHA_DATA_DIR=%ROOT%data"
   start "Kuroha (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   timeout /t 2 /nobreak >nul
-  start "" "http://127.0.0.1:!API_PORT!"
+  if "!MINIMIZE_TO_TRAY!"=="1" (
+    start "Kuroha Tray" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%ROOT%KurohaTray.ps1" -Url "http://127.0.0.1:!API_PORT!" -Port !API_PORT! -Launcher "%ROOT%Kuroha.bat" -CheckUpdates !CHECK_UPDATES_ON_START!
+  )
+  if not "!LAUNCH_MINIMIZED!"=="1" start "" "http://127.0.0.1:!API_PORT!"
   echo Web/API: http://127.0.0.1:!API_PORT!
 ) else (
   set "KUROHA_ENV=development"

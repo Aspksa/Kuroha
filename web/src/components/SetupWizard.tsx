@@ -21,7 +21,7 @@ export default function SetupWizard({
   const [theme, setTheme] = useState(settings.theme);
 
   const finish = async () => {
-    await onSave({ site_name: name.trim() || "Kuroha", theme });
+    await onSave({ ...settings, site_name: name.trim() || "Kuroha", theme });
     localStorage.setItem(SETUP_KEY, "1");
     onDone();
   };

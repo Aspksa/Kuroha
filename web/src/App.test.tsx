@@ -20,6 +20,8 @@ const api = vi.hoisted(() => ({
   getUpdateStatus: vi.fn(),
   prepareUpdate: vi.fn(),
   applyUpdate: vi.fn(),
+  getUpdateBackups: vi.fn(),
+  rollbackUpdate: vi.fn(),
   backupDownloadUrl: vi.fn((id: string) => "/download/" + id),
   logsDownloadUrl: vi.fn(() => "/logs/download"),
 }));
@@ -31,14 +33,23 @@ beforeEach(() => {
   window.history.pushState({}, "", "/overview");
 
   api.getFoundation.mockResolvedValue({
-    health: { status: "ok", version: "0.5.0", environment: "test" },
+    health: { status: "ok", version: "0.6.0", environment: "test" },
     info: {
       name: "Kuroha",
-      version: "0.5.0",
+      version: "0.6.0",
       api_version: "v1",
       capabilities: ["diagnostics", "backup-restore", "pwa"],
     },
-    settings: { site_name: "Куроха", theme: "dark" },
+    settings: {
+      site_name: "Куроха",
+      theme: "dark",
+      language: "ru",
+      autostart_windows: false,
+      launch_minimized: false,
+      minimize_to_tray: true,
+      check_updates_on_start: true,
+      preferred_api_port: 8000,
+    },
   });
   api.getDiagnostics.mockResolvedValue({
     python_version: "3.13.0",
@@ -70,7 +81,7 @@ beforeEach(() => {
   });
   api.getLogs.mockResolvedValue([]);
   api.getUpdateStatus.mockResolvedValue({
-    current_version: "0.5.0",
+    current_version: "0.6.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -79,10 +90,11 @@ beforeEach(() => {
     repository_url: "https://github.com/Aspksa/Kuroha",
     branch: "main",
     commit_message: "Новая версия",
+    changelog: ["feat: новая функция"],
     checked_at: "2026-10-13T00:00:00Z",
   });
   api.prepareUpdate.mockResolvedValue({
-    current_version: "0.5.0",
+    current_version: "0.6.0",
     installed_sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     remote_sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     update_available: true,
@@ -91,7 +103,14 @@ beforeEach(() => {
     repository_url: "https://github.com/Aspksa/Kuroha",
     branch: "main",
     commit_message: "Новая версия",
+    changelog: ["feat: новая функция"],
     checked_at: "2026-10-13T00:00:00Z",
+  });
+  api.getUpdateBackups.mockResolvedValue([]);
+  api.rollbackUpdate.mockResolvedValue({
+    accepted: true,
+    backup: "source-before-test.zip",
+    message: "Откат запущен",
   });
   api.applyUpdate.mockResolvedValue({
     accepted: true,
@@ -136,7 +155,7 @@ describe("App", () => {
 
     await waitFor(() => expect(window.location.pathname).toBe("/update"));
     expect(await screen.findByText("Доступно обновление")).toBeInTheDocument();
-    expect(screen.getByText("0.5.0")).toBeInTheDocument();
+    expect(screen.getByText("0.6.0")).toBeInTheDocument();
   });
 
   it("shows the first-run wizard when setup is not completed", async () => {
