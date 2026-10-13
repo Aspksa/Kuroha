@@ -29,7 +29,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.6.2",
+            "version": "0.7.0",
             "environment": "test",
         }
 
