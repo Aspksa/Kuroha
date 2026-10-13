@@ -46,7 +46,16 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
-  const [settings, setSettings] = useState<PublicSettings>({ site_name: "Kuroha", theme: "dark" });
+  const [settings, setSettings] = useState<PublicSettings>({
+    site_name: "Kuroha",
+    theme: "dark",
+    language: "ru",
+    autostart_windows: false,
+    launch_minimized: false,
+    minimize_to_tray: true,
+    check_updates_on_start: true,
+    preferred_api_port: 8000,
+  });
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [usage, setUsage] = useState<StorageUsage>(emptyUsage);
   const [logs, setLogs] = useState<LogEntry[]>([]);
