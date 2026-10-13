@@ -1,0 +1,139 @@
+* { box-sizing: border-box; }
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #e8ebf3;
+  background: #08090d;
+  font-synthesis: none;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(98, 80, 180, .16), transparent 35rem),
+    #08090d;
+}
+
+button, input { font: inherit; }
+
+.shell {
+  width: min(920px, calc(100% - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
+  padding: 32px 0;
+}
+
+.header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  border-bottom: 1px solid #262936;
+  padding-bottom: 20px;
+}
+
+.eyebrow, .message span {
+  color: #8d93a8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+
+h1 {
+  margin: 6px 0 0;
+  font-size: clamp(28px, 5vw, 48px);
+  letter-spacing: -.04em;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #9ea4b7;
+  font-size: 13px;
+}
+
+.status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #74e39a;
+  box-shadow: 0 0 16px rgba(116, 227, 154, .65);
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+}
+
+.message {
+  max-width: 78%;
+  padding: 16px 18px;
+  border: 1px solid #272a38;
+  border-radius: 14px;
+  background: rgba(19, 21, 29, .78);
+}
+
+.message.user {
+  align-self: flex-end;
+  background: #171526;
+  border-color: #353047;
+}
+
+.message p {
+  margin: 7px 0 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.pending { opacity: .7; }
+
+.composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid #262936;
+}
+
+.composer input {
+  width: 100%;
+  border: 1px solid #2b2e3c;
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #f0f2f7;
+  background: #11131a;
+  outline: none;
+}
+
+.composer input:focus {
+  border-color: #7166ad;
+  box-shadow: 0 0 0 3px rgba(113, 102, 173, .14);
+}
+
+.composer button {
+  border: 0;
+  border-radius: 12px;
+  padding: 0 20px;
+  font-weight: 700;
+  color: #0b0c10;
+  background: #d9d5ff;
+  cursor: pointer;
+}
+
+.composer button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .shell { width: min(100% - 20px, 920px); padding: 20px 0; }
+  .message { max-width: 92%; }
+  .header { align-items: center; }
+}
