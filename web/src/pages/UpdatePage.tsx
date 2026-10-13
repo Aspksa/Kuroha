@@ -37,6 +37,17 @@ function number(value: number): string {
   return new Intl.NumberFormat("ru-RU").format(value);
 }
 
+function relativeTime(value: string | null): string {
+  if (!value) return "история недоступна";
+  const diff = Math.max(0, Date.now() - new Date(value).getTime());
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 60) return minutes <= 1 ? "только что" : minutes + " мин назад";
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours + " ч назад";
+  const days = Math.floor(hours / 24);
+  return days + " дн назад";
+}
+
 function MetricCard({ metric }: { metric: ProjectLifeMetric }) {
   return (
     <article className="life-metric">
@@ -246,9 +257,9 @@ export default function UpdatePage() {
             <div className="section-heading life-heading">
               <div>
                 <span className="eyebrow">ЖИЗНЬ ПРОЕКТА</span>
-                <h2>{number(life.commits)} коммитов · {life.age_days ? life.age_days + " дней" : "локальная копия"}</h2>
+                <h2>{number(life.commits)} коммитов · {relativeTime(life.last_commit_at)}</h2>
               </div>
-              <span className="life-source">{life.source === "git+files" ? "Git + локальные файлы" : "Локальные файлы"}</span>
+              <span className="life-source">{life.source === "git+files" ? "Локальный Git" : life.source === "github+files" ? "с GitHub" : "Локальные файлы"}</span>
             </div>
 
             <div className="life-pulse">
