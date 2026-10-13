@@ -38,10 +38,6 @@ function Show-UpdateNotification {
 }
 
 function Invoke-KurohaAutoCheck {
-  if ($CheckUpdates -ne 1) {
-    return
-  }
-
   try {
     $base = $Url.TrimEnd("/")
     $preferences = Invoke-RestMethod -Uri ($base + "/api/v1/update/preferences") -TimeoutSec 8
@@ -114,11 +110,12 @@ $notify.Add_DoubleClick({ Open-Kuroha })
 
 if ($CheckUpdates -eq 1) {
   Invoke-KurohaAutoCheck
-  $updateTimer = New-Object System.Windows.Forms.Timer
-  $updateTimer.Interval = 3600000
-  $updateTimer.Add_Tick({ Invoke-KurohaAutoCheck })
-  $updateTimer.Start()
 }
+
+$updateTimer = New-Object System.Windows.Forms.Timer
+$updateTimer.Interval = 3600000
+$updateTimer.Add_Tick({ Invoke-KurohaAutoCheck })
+$updateTimer.Start()
 
 [System.Windows.Forms.Application]::Run()
 if ($null -ne $updateTimer) {
