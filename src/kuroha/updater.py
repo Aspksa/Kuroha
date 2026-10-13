@@ -20,6 +20,7 @@ REPOSITORY = "Aspksa/Kuroha"
 BRANCH = "main"
 REPOSITORY_URL = "https://github.com/Aspksa/Kuroha"
 BRANCH_API_URL = f"https://api.github.com/repos/{REPOSITORY}/branches/{BRANCH}"
+COMPARE_API_URL = f"https://api.github.com/repos/{REPOSITORY}/compare"
 MAX_ARCHIVE_BYTES = 128 * 1024 * 1024
 MAX_EXTRACTED_BYTES = 256 * 1024 * 1024
 
@@ -71,7 +72,23 @@ def wait_for_parent() -> None:
 def backup_current() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     archive = backup_dir / f"source-before-{stamp}.zip"
+    previous_sha = None
+    try:
+        previous_sha = json.loads(state_file.read_text(encoding="utf-8")).get("installed_sha")
+    except (OSError, ValueError, TypeError):
+        pass
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+        output.writestr(
+            ".kuroha-update.json",
+            json.dumps(
+                {
+                    "installed_sha": previous_sha,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
         for directory in managed_dirs:
             root = project / directory
             if not root.exists():
@@ -139,6 +156,109 @@ except Exception as exc:
 '''
 
 
+_ROLLBACK_HELPER = r'''
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import sys
+import tempfile
+import time
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+project = Path(sys.argv[1]).resolve()
+archive_path = Path(sys.argv[2]).resolve()
+state_file = Path(sys.argv[3]).resolve()
+parent_pid = int(sys.argv[4])
+log_file = state_file.parent / "update.log"
+
+managed_dirs = [".github", "docs", "src", "tests", "web"]
+preserved = {".git", ".venv", ".cache", "data", "node_modules", "dist", "__pycache__", ".env"}
+
+
+def log(message: str) -> None:
+    stamp = datetime.now(timezone.utc).isoformat()
+    with log_file.open("a", encoding="utf-8") as handle:
+        handle.write(f"{stamp} {message}\n")
+
+
+def wait_for_parent() -> None:
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        try:
+            os.kill(parent_pid, 0)
+        except OSError:
+            return
+        time.sleep(0.25)
+
+
+def restore() -> None:
+    with tempfile.TemporaryDirectory(dir=state_file.parent) as temp_dir:
+        source = Path(temp_dir)
+        with zipfile.ZipFile(archive_path) as archive:
+            for item in archive.infolist():
+                path = Path(item.filename)
+                if path.is_absolute() or ".." in path.parts:
+                    raise ValueError("unsafe rollback archive path")
+            archive.extractall(source)
+
+        for directory in managed_dirs:
+            destination = project / directory
+            incoming = source / directory
+            if destination.exists():
+                shutil.rmtree(destination)
+            if incoming.exists():
+                shutil.copytree(incoming, destination)
+
+        for incoming in source.iterdir():
+            if not incoming.is_file() or incoming.name in {".env", ".kuroha-update.json"}:
+                continue
+            shutil.copy2(incoming, project / incoming.name)
+
+        previous_sha = None
+        metadata = source / ".kuroha-update.json"
+        if metadata.is_file():
+            try:
+                previous_sha = json.loads(metadata.read_text(encoding="utf-8")).get("installed_sha")
+            except (OSError, ValueError, TypeError):
+                pass
+
+        state_file.write_text(
+            json.dumps(
+                {
+                    "installed_sha": previous_sha,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "rolled_back_from": archive_path.name,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        log(f"rollback applied: {archive_path.name}")
+
+
+def restart() -> None:
+    launcher = project / "Kuroha.bat"
+    if os.name == "nt" and launcher.exists():
+        os.startfile(str(launcher))
+        log("Kuroha.bat restart requested after rollback")
+
+
+try:
+    wait_for_parent()
+    restore()
+    restart()
+except Exception as exc:
+    log(f"rollback failed: {type(exc).__name__}: {exc}")
+    raise
+'''
+
+
 class UpdateService:
     def __init__(self, project_root: Path, data_dir: Path) -> None:
         self.project_root = project_root.resolve()
@@ -194,6 +314,21 @@ class UpdateService:
             pass
         return None
 
+    def _changelog(self, installed_sha: str | None, remote_sha: str) -> list[str]:
+        if not installed_sha or installed_sha == remote_sha:
+            return []
+        try:
+            payload = self._fetch_json(f"{COMPARE_API_URL}/{installed_sha}...{remote_sha}")
+            commits = payload.get("commits", [])
+            messages = []
+            for item in commits[-12:]:
+                message = str(item.get("commit", {}).get("message", "")).splitlines()[0].strip()
+                if message:
+                    messages.append(message)
+            return messages
+        except Exception:
+            return []
+
     def check(self) -> dict[str, Any]:
         payload = self._fetch_json(BRANCH_API_URL)
         remote_sha = str(payload["commit"]["sha"])
@@ -210,6 +345,7 @@ class UpdateService:
             "repository_url": REPOSITORY_URL,
             "branch": BRANCH,
             "commit_message": str(commit.get("message", "")).splitlines()[0],
+            "changelog": self._changelog(installed_sha, remote_sha),
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -328,4 +464,77 @@ class UpdateService:
             "accepted": True,
             "target_sha": target_sha,
             "message": "Обновление запущено. Kuroha будет перезапущена автоматически.",
+        }
+
+
+    def list_backups(self) -> list[dict[str, Any]]:
+        backup_dir = self.update_dir / "backups"
+        if not backup_dir.is_dir():
+            return []
+        result: list[dict[str, Any]] = []
+        for path in backup_dir.glob("source-before-*.zip"):
+            if not path.is_file():
+                continue
+            result.append(
+                {
+                    "filename": path.name,
+                    "created_at": datetime.fromtimestamp(
+                        path.stat().st_mtime, tz=timezone.utc
+                    ).isoformat(),
+                    "size_bytes": path.stat().st_size,
+                }
+            )
+        return sorted(result, key=lambda item: str(item["created_at"]), reverse=True)
+
+    def rollback(self, filename: str) -> dict[str, Any]:
+        if (self.project_root / ".git").exists():
+            raise ValueError("Откат из интерфейса отключён для Git-клона.")
+
+        if not filename.startswith("source-before-") or not filename.endswith(".zip"):
+            raise ValueError("неверное имя резервной копии обновления")
+
+        backup_dir = (self.update_dir / "backups").resolve()
+        archive = (backup_dir / filename).resolve()
+        if not archive.is_relative_to(backup_dir) or not archive.is_file():
+            raise FileNotFoundError(filename)
+
+        with zipfile.ZipFile(archive) as test_archive:
+            for item in test_archive.infolist():
+                path = Path(item.filename)
+                if path.is_absolute() or ".." in path.parts:
+                    raise ValueError("архив отката содержит небезопасный путь")
+
+        helper = self.update_dir / "rollback_update.py"
+        helper.write_text(_ROLLBACK_HELPER, encoding="utf-8")
+        kwargs: dict[str, Any] = {
+            "cwd": str(self.project_root),
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "close_fds": True,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+            )
+
+        subprocess.Popen(
+            [
+                sys.executable,
+                str(helper),
+                str(self.project_root),
+                str(archive),
+                str(self.state_file),
+                str(os.getpid()),
+            ],
+            **kwargs,
+        )
+
+        if os.getenv("KUROHA_DISABLE_UPDATE_SHUTDOWN") != "1":
+            threading.Timer(1.0, lambda: os._exit(0)).start()
+
+        return {
+            "accepted": True,
+            "backup": filename,
+            "message": "Откат запущен. Kuroha будет перезапущена автоматически.",
         }
