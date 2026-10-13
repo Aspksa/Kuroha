@@ -23,3 +23,23 @@ def test_chat_reuses_session() -> None:
     )
     assert second.status_code == 200
     assert second.json()["reply"] == "This session contains 2 user message(s)."
+
+
+def test_chat_preserves_cyrillic_utf8() -> None:
+    message = "Привет, Куроха! Проверка: ёжик, Владивосток, мир."
+    response = client.post("/api/chat", json={"message": message})
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == f"Kuroha received: {message}"
+
+    body = response.content.decode("utf-8")
+    assert "Привет, Куроха!" in body
+    assert "ёжик" in body
+
+
+def test_chat_preserves_mixed_unicode() -> None:
+    message = "Русский + English + 日本語 + emoji 🌙"
+    response = client.post("/api/chat", json={"message": message})
+
+    assert response.status_code == 200
+    assert response.json()["reply"] == f"Kuroha received: {message}"
