@@ -12,6 +12,7 @@ set "WEB_PORT=5173"
 set "LAUNCH_MINIMIZED=0"
 set "MINIMIZE_TO_TRAY=1"
 set "CHECK_UPDATES_ON_START=1"
+set "PREFERRED_DATA_DIR="
 set "PIP_CACHE_DIR=%ROOT%.cache\pip"
 set "npm_config_cache=%ROOT%.cache\npm"
 set "PYTHONUTF8=1"
@@ -20,7 +21,7 @@ set "PYTHONLEGACYWINDOWSSTDIO="
 set "KUROHA_DATA_DIR=%ROOT%data"
 
 if exist "%ROOT%data\launcher.json" (
-  for /f "tokens=1,* delims==" %%A in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-Content -LiteralPath ''%ROOT%data\launcher.json'' -Raw | ConvertFrom-Json; ''API_PORT='' + $c.preferred_api_port; ''LAUNCH_MINIMIZED='' + [int][bool]$c.launch_minimized; ''MINIMIZE_TO_TRAY='' + [int][bool]$c.minimize_to_tray; ''CHECK_UPDATES_ON_START='' + [int][bool]$c.check_updates_on_start"') do set "%%A=%%B"
+  for /f "tokens=1,* delims==" %%A in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-Content -LiteralPath ''%ROOT%data\launcher.json'' -Raw | ConvertFrom-Json; ''API_PORT='' + $c.preferred_api_port; ''LAUNCH_MINIMIZED='' + [int][bool]$c.launch_minimized; ''MINIMIZE_TO_TRAY='' + [int][bool]$c.minimize_to_tray; ''CHECK_UPDATES_ON_START='' + [int][bool]$c.check_updates_on_start; ''PREFERRED_DATA_DIR='' + [string]$c.preferred_data_dir"') do set "%%A=%%B"
 )
 
 if /I "%~1"=="--check" set "CHECK_ONLY=1"
@@ -83,6 +84,18 @@ if "%CHECK_ONLY%"=="1" (
   exit /b 0
 )
 
+if defined PREFERRED_DATA_DIR (
+  if not exist "!PREFERRED_DATA_DIR!" mkdir "!PREFERRED_DATA_DIR!"
+  if errorlevel 1 goto :fail
+  if /I not "!PREFERRED_DATA_DIR!"=="%ROOT%data" (
+    if not exist "!PREFERRED_DATA_DIR!\kuroha.db" if exist "%ROOT%data" (
+      robocopy "%ROOT%data" "!PREFERRED_DATA_DIR!" /E /XF launcher.json >nul
+      if errorlevel 8 goto :fail
+    )
+    set "KUROHA_DATA_DIR=!PREFERRED_DATA_DIR!"
+  )
+)
+
 if exist "%ROOT%.venv\Scripts\python.exe" (
   "%ROOT%.venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,16) else 1)" >nul 2>nul
   if errorlevel 1 (
@@ -115,7 +128,7 @@ if not exist "node_modules" (
 popd
 
 echo [4/5] Selecting free local ports...
-call :find_free_port 8000 API_PORT
+call :find_free_port !API_PORT! API_PORT
 if errorlevel 1 goto :fail
 
 if /I "!MODE!"=="development" (
@@ -140,7 +153,6 @@ if /I "!MODE!"=="production" (
 
   set "KUROHA_ENV=production"
   set "KUROHA_PORT=!API_PORT!"
-  set "KUROHA_DATA_DIR=%ROOT%data"
   start "Kuroha (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   timeout /t 2 /nobreak >nul
   if "!MINIMIZE_TO_TRAY!"=="1" (
@@ -150,7 +162,6 @@ if /I "!MODE!"=="production" (
   echo Web/API: http://127.0.0.1:!API_PORT!
 ) else (
   set "KUROHA_ENV=development"
-  set "KUROHA_DATA_DIR=%ROOT%data"
   set "VITE_API_TARGET=http://127.0.0.1:!API_PORT!"
   start "Kuroha API (!API_PORT!)" /D "%PROJECT_DIR%" "%ROOT%.venv\Scripts\python.exe" -m uvicorn kuroha.app:app --host 127.0.0.1 --port !API_PORT!
   start "Kuroha Web (!WEB_PORT!)" /D "%PROJECT_DIR%\web" cmd /k npm run dev -- --host 127.0.0.1 --port !WEB_PORT!
