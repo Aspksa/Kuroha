@@ -15,6 +15,7 @@ def build_client(tmp_path: Path, *, max_request_bytes: int = 1024 * 1024) -> Tes
         log_level="WARNING",
         cors_origins=("http://localhost:5173",),
         max_request_bytes=max_request_bytes,
+        project_root=tmp_path / "project",
     )
     return TestClient(create_app(settings))
 
@@ -25,7 +26,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.6.0",
+            "version": "0.6.1",
             "environment": "test",
         }
 
@@ -48,14 +49,21 @@ def test_settings_persist_in_sqlite(tmp_path: Path) -> None:
         assert initial.json()["theme"] == "dark"
         assert initial.json()["language"] == "ru"
         assert initial.json()["minimize_to_tray"] is True
+        assert initial.json()["preferred_data_dir"] == ""
 
         updated = client.put(
             "/api/v1/settings",
-            json={"site_name": "Куроха", "theme": "light"},
+            json={
+                "site_name": "Куроха",
+                "theme": "light",
+                "preferred_data_dir": str(tmp_path / "new-data"),
+            },
         )
         assert updated.status_code == 200
         assert updated.json()["site_name"] == "Куроха"
         assert updated.json()["theme"] == "light"
+        assert updated.json()["preferred_data_dir"] == str(tmp_path / "new-data")
+        assert (tmp_path / "project" / "data" / "launcher.json").is_file()
 
     with build_client(tmp_path) as client:
         persisted = client.get("/api/v1/settings")
@@ -69,7 +77,7 @@ def test_diagnostics_exposes_storage_health(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["database_schema_version"] == 3
+    assert payload["database_schema_version"] == 4
     assert payload["database_journal_mode"] == "wal"
     assert payload["database_integrity"] == "ok"
     assert payload["data_dir_writable"] is True

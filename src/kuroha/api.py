@@ -95,7 +95,7 @@ def update_settings(payload: SettingsUpdate, request: Request) -> PublicSettings
         return PublicSettings.model_validate(_store(request).get_settings())
     try:
         current = _store(request).update_settings(values)
-        write_launcher_config(request.app.state.settings.data_dir, current)
+        write_launcher_config(request.app.state.settings.project_root / "data", current)
         set_windows_autostart(
             request.app.state.settings.project_root,
             current.get("autostart_windows", "false") == "true",

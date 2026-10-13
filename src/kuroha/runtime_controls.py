@@ -16,6 +16,7 @@ def write_launcher_config(data_dir: Path, values: dict[str, str]) -> None:
         "minimize_to_tray": values.get("minimize_to_tray", "true") == "true",
         "check_updates_on_start": values.get("check_updates_on_start", "true") == "true",
         "preferred_api_port": int(values.get("preferred_api_port", "8000")),
+        "preferred_data_dir": values.get("preferred_data_dir", ""),
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 

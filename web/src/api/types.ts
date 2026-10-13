@@ -20,6 +20,7 @@ export type PublicSettings = {
   minimize_to_tray: boolean;
   check_updates_on_start: boolean;
   preferred_api_port: number;
+  preferred_data_dir: string;
 };
 
 export type Diagnostics = {

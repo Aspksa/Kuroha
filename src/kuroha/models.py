@@ -29,6 +29,7 @@ class PublicSettings(BaseModel):
     minimize_to_tray: bool
     check_updates_on_start: bool
     preferred_api_port: int
+    preferred_data_dir: str
 
 
 class SettingsUpdate(BaseModel):
@@ -40,6 +41,7 @@ class SettingsUpdate(BaseModel):
     minimize_to_tray: bool | None = None
     check_updates_on_start: bool | None = None
     preferred_api_port: int | None = Field(default=None, ge=1024, le=65535)
+    preferred_data_dir: str | None = Field(default=None, max_length=500)
 
 
 class BackupInfo(BaseModel):
