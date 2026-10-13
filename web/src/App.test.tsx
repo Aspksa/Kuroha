@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 
@@ -14,6 +14,11 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("./api/client", () => api);
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 beforeEach(() => {
   api.getFoundation.mockResolvedValue({
