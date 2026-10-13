@@ -21,7 +21,7 @@ set "PYTHONLEGACYWINDOWSSTDIO="
 set "KUROHA_DATA_DIR=%ROOT%data"
 
 if exist "%ROOT%data\launcher.json" (
-  for /f "tokens=1,* delims==" %%A in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-Content -LiteralPath ''%ROOT%data\launcher.json'' -Raw | ConvertFrom-Json; ''API_PORT='' + $c.preferred_api_port; ''LAUNCH_MINIMIZED='' + [int][bool]$c.launch_minimized; ''MINIMIZE_TO_TRAY='' + [int][bool]$c.minimize_to_tray; ''CHECK_UPDATES_ON_START='' + [int][bool]$c.check_updates_on_start; ''PREFERRED_DATA_DIR='' + [string]$c.preferred_data_dir"') do set "%%A=%%B"
+  for /f "tokens=1,* delims==" %%A in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=Get-Content -LiteralPath ''%ROOT%data\launcher.json'' -Raw | ConvertFrom-Json; $d=[string]$c.preferred_data_dir; if($d){$d=[IO.Path]::GetFullPath($d).TrimEnd(''\'')}; ''API_PORT='' + $c.preferred_api_port; ''LAUNCH_MINIMIZED='' + [int][bool]$c.launch_minimized; ''MINIMIZE_TO_TRAY='' + [int][bool]$c.minimize_to_tray; ''CHECK_UPDATES_ON_START='' + [int][bool]$c.check_updates_on_start; ''PREFERRED_DATA_DIR='' + $d"') do set "%%A=%%B"
 )
 
 if /I "%~1"=="--check" set "CHECK_ONLY=1"
