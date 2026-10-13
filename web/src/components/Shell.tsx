@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import type { Health, PublicSettings } from "../api/types";
@@ -17,7 +18,7 @@ const STORAGE_KEY = "kuroha-nav-items";
 const COLLAPSED_KEY = "kuroha-nav-collapsed";
 
 function Icon({ id }: { id: NavId }) {
-  const paths: Record<NavId, JSX.Element> = {
+  const paths: Record<NavId, ReactNode> = {
     home: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10.5V20h13v-9.5" /><path d="M9 20v-6h6v6" /></>,
     data: <><ellipse cx="12" cy="5" rx="7" ry="3" /><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5" /><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" /></>,
     update: <><path d="M20 6v5h-5" /><path d="M4 18v-5h5" /><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 8" /><path d="M5.5 15A7 7 0 0 0 17.8 17.8L20 16" /></>,
