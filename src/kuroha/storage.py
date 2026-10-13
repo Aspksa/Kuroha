@@ -23,6 +23,7 @@ DEFAULT_SETTINGS = {
     "minimize_to_tray": "true",
     "check_updates_on_start": "true",
     "preferred_api_port": "8000",
+    "preferred_data_dir": "",
 }
 
 
