@@ -75,6 +75,22 @@ jobs:
                   core.info('Branch already absent: ' + branch);
                   continue;
                 }
+                if (error.status === 422) {
+                  // Only ignore 422 when GitHub confirms the ref no longer exists.
+                  try {
+                    await github.rest.git.getRef({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      ref: 'heads/' + branch,
+                    });
+                  } catch (lookupError) {
+                    if (lookupError.status === 404) {
+                      core.info('Branch already absent (delete returned 422): ' + branch);
+                      continue;
+                    }
+                    throw lookupError;
+                  }
+                }
                 throw error;
               }
             }
