@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -83,16 +83,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     web_dist = PROJECT_ROOT / "web" / "dist"
     index_file = web_dist / "index.html"
 
-    @app.get("/", include_in_schema=False)
-    def root() -> FileResponse | JSONResponse:
+    @app.get("/", include_in_schema=False, response_model=None)
+    def root():
         if index_file.is_file():
             return FileResponse(index_file)
         return JSONResponse(
             {"name": "Kuroha", "version": __version__, "status": "web build not found"}
         )
 
-    @app.get("/{path:path}", include_in_schema=False)
-    def web_fallback(path: str) -> FileResponse:
+    @app.get("/{path:path}", include_in_schema=False, response_model=None)
+    def web_fallback(path: str):
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
 
