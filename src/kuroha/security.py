@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -18,6 +19,51 @@ SECURITY_HEADERS = {
         "script-src 'self'; connect-src 'self'"
     ),
 }
+
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+class LocalRequestProtectionMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app: object, allowed_origins: tuple[str, ...]) -> None:
+        super().__init__(app)
+        self.allowed_origins = set(allowed_origins)
+
+    @staticmethod
+    def _same_local_origin(request: Request, origin: str) -> bool:
+        try:
+            parsed = urlsplit(origin)
+        except ValueError:
+            return False
+        if parsed.scheme not in {"http", "https"}:
+            return False
+        if parsed.hostname not in {"127.0.0.1", "localhost"}:
+            return False
+        request_port = request.url.port or (443 if request.url.scheme == "https" else 80)
+        origin_port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        return origin_port == request_port
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        if request.url.path.startswith("/api/") and request.method in UNSAFE_METHODS:
+            origin = request.headers.get("origin")
+            if origin:
+                origin_allowed = origin in self.allowed_origins or self._same_local_origin(
+                    request, origin
+                )
+                if not origin_allowed or request.headers.get("x-kuroha") != "1":
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "error": {
+                                "code": "forbidden_origin",
+                                "message": "Cross-origin modifying request is not allowed.",
+                            }
+                        },
+                    )
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

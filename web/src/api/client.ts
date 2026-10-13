@@ -16,11 +16,15 @@ import type {
 export const API_BASE = "/api/v1";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? "GET").toUpperCase();
   const response = await fetch(API_BASE + path, {
     ...init,
     headers: {
       ...(init?.body && !(init.body instanceof ArrayBuffer)
         ? { "Content-Type": "application/json" }
+        : {}),
+      ...(method !== "GET" && method !== "HEAD" && method !== "OPTIONS"
+        ? { "X-Kuroha": "1" }
         : {}),
       ...init?.headers,
     },

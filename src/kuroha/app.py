@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 from kuroha import __version__
@@ -14,6 +15,7 @@ from kuroha.api import router
 from kuroha.config import PROJECT_ROOT, Settings
 from kuroha.logging import configure_logging
 from kuroha.security import (
+    LocalRequestProtectionMiddleware,
     RequestSizeLimitMiddleware,
     SecurityHeadersMiddleware,
     StaticCacheMiddleware,
@@ -43,6 +45,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.store = store
     app.state.updater = updater
 
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "testserver"],
+    )
+    app.add_middleware(
+        LocalRequestProtectionMiddleware,
+        allowed_origins=runtime_settings.cors_origins,
+    )
     app.add_middleware(GZipMiddleware, minimum_size=500)
     app.add_middleware(StaticCacheMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
@@ -55,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=list(runtime_settings.cors_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Kuroha"],
     )
 
     app.include_router(router, prefix="/api/v1")

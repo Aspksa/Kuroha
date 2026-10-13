@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sqlite3
 import tempfile
 import zipfile
+from contextlib import closing
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -12,6 +14,10 @@ from threading import RLock
 from uuid import uuid4
 
 from kuroha.migrations import SCHEMA_VERSION, migrate
+
+
+MAX_IMPORTED_DATABASE_BYTES = 128 * 1024 * 1024
+
 
 
 DEFAULT_SETTINGS = {
@@ -36,12 +42,16 @@ class SQLiteStore:
 
     def _connect_path(self, path: Path) -> sqlite3.Connection:
         connection = sqlite3.connect(path, timeout=5)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA busy_timeout = 5000")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = NORMAL")
-        return connection
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA busy_timeout = 5000")
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("PRAGMA synchronous = NORMAL")
+            return connection
+        except Exception:
+            connection.close()
+            raise
 
     def _connect(self) -> sqlite3.Connection:
         return self._connect_path(self.database_path)
@@ -50,33 +60,33 @@ class SQLiteStore:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             migrate(connection)
 
     def is_ready(self) -> bool:
         try:
-            with self._connect() as connection:
+            with closing(self._connect()) as connection, connection:
                 return connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"
         except sqlite3.Error:
             return False
 
     def schema_version(self) -> int:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             return int(connection.execute("PRAGMA user_version").fetchone()[0])
 
     def journal_mode(self) -> str:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             return str(connection.execute("PRAGMA journal_mode").fetchone()[0])
 
     def integrity_check(self) -> str:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             return str(connection.execute("PRAGMA integrity_check").fetchone()[0])
 
     def database_size(self) -> int:
         return self.database_path.stat().st_size if self.database_path.exists() else 0
 
     def get_settings(self) -> dict[str, str]:
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             rows = connection.execute(
                 "SELECT key, value FROM app_settings ORDER BY key"
             ).fetchall()
@@ -88,7 +98,7 @@ class SQLiteStore:
             names = ", ".join(sorted(unknown))
             raise ValueError(f"unsupported settings: {names}")
 
-        with self._lock, self._connect() as connection:
+        with self._lock, closing(self._connect()) as connection, connection:
             for key, value in values.items():
                 connection.execute(
                     """
@@ -107,9 +117,9 @@ class SQLiteStore:
 
         with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
             snapshot = Path(temp_dir) / "kuroha.db"
-            with self._lock, self._connect() as source:
+            with self._lock, closing(self._connect()) as source, source:
                 source.execute("PRAGMA wal_checkpoint(PASSIVE)")
-                with self._connect_path(snapshot) as target:
+                with closing(self._connect_path(snapshot)) as target, target:
                     source.backup(target)
                     target.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
@@ -163,27 +173,48 @@ class SQLiteStore:
         created_at = datetime.now(timezone.utc)
         backup_id = created_at.strftime("%Y%m%dT%H%M%SZ") + "-import-" + uuid4().hex[:8]
         archive_path = self.backup_dir / f"{backup_id}.zip"
-
-        try:
-            with zipfile.ZipFile(BytesIO(payload)) as archive:
-                names = set(archive.namelist())
-                if {"kuroha.db", "manifest.json"} - names:
-                    raise ValueError("backup archive is incomplete")
-                source_manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
-                if int(source_manifest.get("schema_version", 0)) > SCHEMA_VERSION:
-                    raise ValueError("backup uses a newer database schema")
-                database_bytes = archive.read("kuroha.db")
-        except (zipfile.BadZipFile, json.JSONDecodeError, KeyError) as exc:
-            raise ValueError("invalid backup archive") from exc
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
 
         with tempfile.TemporaryDirectory(dir=self.database_path.parent) as temp_dir:
             candidate = Path(temp_dir) / "kuroha.db"
-            candidate.write_bytes(database_bytes)
-            with self._connect_path(candidate) as connection:
-                if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-                    raise ValueError("backup database failed integrity check")
-                migrate(connection)
-                connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            try:
+                with zipfile.ZipFile(BytesIO(payload)) as archive:
+                    names = set(archive.namelist())
+                    if {"kuroha.db", "manifest.json"} - names:
+                        raise ValueError("backup archive is incomplete")
+
+                    source_manifest = json.loads(
+                        archive.read("manifest.json").decode("utf-8")
+                    )
+                    if not isinstance(source_manifest, dict):
+                        raise ValueError("backup manifest must be an object")
+                    if int(source_manifest.get("schema_version", 0)) > SCHEMA_VERSION:
+                        raise ValueError("backup uses a newer database schema")
+
+                    database_info = archive.getinfo("kuroha.db")
+                    if database_info.file_size > MAX_IMPORTED_DATABASE_BYTES:
+                        raise ValueError("backup database is too large")
+
+                    with archive.open(database_info, "r") as source, candidate.open("wb") as target:
+                        shutil.copyfileobj(source, target, length=1024 * 1024)
+
+                with closing(self._connect_path(candidate)) as connection, connection:
+                    if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+                        raise ValueError("backup database failed integrity check")
+                    migrate(connection)
+                    connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            except ValueError:
+                raise
+            except (
+                zipfile.BadZipFile,
+                json.JSONDecodeError,
+                KeyError,
+                AttributeError,
+                TypeError,
+                sqlite3.Error,
+                RuntimeError,
+            ) as exc:
+                raise ValueError("invalid backup archive") from exc
 
             manifest = {
                 "id": backup_id,
@@ -207,12 +238,18 @@ class SQLiteStore:
                 if {"kuroha.db", "manifest.json"} - names:
                     raise ValueError("backup archive is incomplete")
                 manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+                if not isinstance(manifest, dict):
+                    raise ValueError("backup manifest must be an object")
                 if int(manifest.get("schema_version", 0)) > SCHEMA_VERSION:
                     raise ValueError("backup uses a newer database schema")
-                archive.extract("kuroha.db", path=temp_path)
+                database_info = archive.getinfo("kuroha.db")
+                if database_info.file_size > MAX_IMPORTED_DATABASE_BYTES:
+                    raise ValueError("backup database is too large")
+                with archive.open(database_info, "r") as source, (temp_path / "kuroha.db").open("wb") as target:
+                    shutil.copyfileobj(source, target, length=1024 * 1024)
 
             restored = temp_path / "kuroha.db"
-            with self._connect_path(restored) as connection:
+            with closing(self._connect_path(restored)) as connection, connection:
                 if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                     raise ValueError("backup database failed integrity check")
                 migrate(connection)
@@ -220,7 +257,7 @@ class SQLiteStore:
 
             with self._lock:
                 if self.database_path.exists():
-                    with self._connect() as current:
+                    with closing(self._connect()) as current, current:
                         current.execute("PRAGMA wal_checkpoint(TRUNCATE)")
                     safety = self.database_path.with_suffix(".pre-restore.db")
                     try:

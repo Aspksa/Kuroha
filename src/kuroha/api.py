@@ -96,10 +96,11 @@ def update_settings(payload: SettingsUpdate, request: Request) -> PublicSettings
     try:
         current = _store(request).update_settings(values)
         write_launcher_config(request.app.state.settings.project_root / "data", current)
-        set_windows_autostart(
-            request.app.state.settings.project_root,
-            current.get("autostart_windows", "false") == "true",
-        )
+        if "autostart_windows" in values:
+            set_windows_autostart(
+                request.app.state.settings.project_root,
+                current.get("autostart_windows", "false") == "true",
+            )
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PublicSettings.model_validate(current)
@@ -123,6 +124,9 @@ def create_backup(request: Request) -> BackupInfo:
 
 @router.post("/backups/import", response_model=BackupInfo, status_code=201)
 async def import_backup(request: Request) -> BackupInfo:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/zip":
+        raise HTTPException(status_code=415, detail="Backup import requires application/zip")
     try:
         payload = await request.body()
         return BackupInfo.model_validate(_store(request).import_backup(payload))

@@ -59,6 +59,23 @@ def log(message: str) -> None:
 
 
 def wait_for_parent() -> None:
+    if os.name == "nt":
+        import ctypes
+
+        synchronize = 0x00100000
+        wait_timeout = 0x00000102
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(synchronize, False, parent_pid)
+        if not handle:
+            return
+        try:
+            result = kernel32.WaitForSingleObject(handle, 30000)
+            if result == wait_timeout:
+                log("parent process wait timed out; continuing update")
+        finally:
+            kernel32.CloseHandle(handle)
+        return
+
     deadline = time.time() + 30
     while time.time() < deadline:
         try:
@@ -187,6 +204,20 @@ def log(message: str) -> None:
 
 
 def wait_for_parent() -> None:
+    if os.name == "nt":
+        import ctypes
+
+        synchronize = 0x00100000
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(synchronize, False, parent_pid)
+        if not handle:
+            return
+        try:
+            kernel32.WaitForSingleObject(handle, 30000)
+        finally:
+            kernel32.CloseHandle(handle)
+        return
+
     deadline = time.time() + 30
     while time.time() < deadline:
         try:

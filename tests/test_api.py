@@ -1,3 +1,6 @@
+import io
+import json
+import zipfile
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -26,7 +29,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.6.1",
+            "version": "0.6.2",
             "environment": "test",
         }
 
@@ -119,3 +122,49 @@ def test_request_size_limit(tmp_path: Path) -> None:
         )
         assert response.status_code == 413
         assert response.json()["error"]["code"] == "request_too_large"
+
+
+def _backup_payload(database: bytes, manifest: object) -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("kuroha.db", database)
+        archive.writestr("manifest.json", json.dumps(manifest))
+    return output.getvalue()
+
+
+def test_backup_import_requires_zip_content_type(tmp_path: Path) -> None:
+    with build_client(tmp_path) as client:
+        response = client.post(
+            "/api/v1/backups/import",
+            content=b"not a zip",
+            headers={"Content-Type": "text/plain"},
+        )
+
+    assert response.status_code == 415
+
+
+def test_invalid_backup_database_returns_422(tmp_path: Path) -> None:
+    payload = _backup_payload(
+        b"this is not sqlite",
+        {"schema_version": 4},
+    )
+    with build_client(tmp_path) as client:
+        response = client.post(
+            "/api/v1/backups/import",
+            content=payload,
+            headers={"Content-Type": "application/zip"},
+        )
+
+    assert response.status_code == 422
+
+
+def test_invalid_backup_manifest_shape_returns_422(tmp_path: Path) -> None:
+    payload = _backup_payload(b"not important", [1])
+    with build_client(tmp_path) as client:
+        response = client.post(
+            "/api/v1/backups/import",
+            content=payload,
+            headers={"Content-Type": "application/zip"},
+        )
+
+    assert response.status_code == 422
