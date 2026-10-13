@@ -4,6 +4,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 set "ROOT=%~dp0"
+set "PROJECT_DIR=%ROOT:~0,-1%"
 set "MODE=production"
 set "CHECK_ONLY=0"
 set "API_PORT=8000"
@@ -23,7 +24,7 @@ echo ========================================
 echo              KUROHA
 echo ========================================
 echo.
-echo Project: "%ROOT%"
+echo Project: "%PROJECT_DIR%"
 echo Mode: !MODE!
 
 if not exist "%ROOT%pyproject.toml" (
@@ -87,7 +88,7 @@ if not exist "%ROOT%.venv\Scripts\python.exe" (
 )
 
 echo [2/5] Installing Kuroha Python dependencies...
-"%ROOT%.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -e "%ROOT%"
+"%ROOT%.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -e "%PROJECT_DIR%"
 if errorlevel 1 goto :fail
 
 echo [3/5] Installing web dependencies...
