@@ -13,15 +13,19 @@ from kuroha.models import (
     HealthResponse,
     InfoResponse,
     LogEntry,
+    ProjectLifeResponse,
     PublicSettings,
     ReadyResponse,
     SettingsUpdate,
     StorageUsage,
     UpdateApplyResponse,
     UpdateBackup,
+    UpdatePreferences,
+    UpdatePreferencesUpdate,
     UpdateRollbackResponse,
     UpdateStatus,
 )
+from kuroha.project_life import ProjectLifeService
 from kuroha.runtime_controls import set_windows_autostart, write_launcher_config
 from kuroha.storage import SQLiteStore
 from kuroha.updater import UpdateService
@@ -79,6 +83,8 @@ def info() -> InfoResponse:
             "update-rollback",
             "windows-tray",
             "application-settings",
+            "project-life",
+            "update-channels",
         ],
     )
 
@@ -183,6 +189,42 @@ def storage_usage(request: Request) -> StorageUsage:
 @router.post("/storage/cleanup", response_model=CleanupResult)
 def cleanup_storage(payload: CleanupRequest, request: Request) -> CleanupResult:
     return CleanupResult.model_validate(_store(request).cleanup_storage(payload.keep_backups))
+
+
+
+
+
+@router.get("/update/preferences", response_model=UpdatePreferences)
+def update_preferences(request: Request) -> UpdatePreferences:
+    return UpdatePreferences.model_validate(_updater(request).preferences())
+
+
+@router.put("/update/preferences", response_model=UpdatePreferences)
+def save_update_preferences(
+    payload: UpdatePreferencesUpdate,
+    request: Request,
+) -> UpdatePreferences:
+    try:
+        return UpdatePreferences.model_validate(
+            _updater(request).save_preferences(
+                channel=payload.channel,
+                auto_check=payload.auto_check,
+                token=payload.token,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/update/preferences/token", response_model=UpdatePreferences)
+def delete_update_token(request: Request) -> UpdatePreferences:
+    return UpdatePreferences.model_validate(_updater(request).delete_token())
+
+
+@router.get("/update/project-life", response_model=ProjectLifeResponse)
+def project_life(request: Request) -> ProjectLifeResponse:
+    service = ProjectLifeService(request.app.state.settings.project_root)
+    return ProjectLifeResponse.model_validate(service.collect())
 
 
 @router.get("/update/status", response_model=UpdateStatus)
