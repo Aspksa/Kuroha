@@ -79,7 +79,7 @@ export default function App() {
       setBackups(nextBackups);
       setUsage(nextUsage);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unknown error");
+      setError(reason instanceof Error ? reason.message : "Неизвестная ошибка");
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export default function App() {
 
   if (loading && !ready) return <LoadingPanel />;
   if (error && !ready) return <ErrorPanel message={error} retry={() => void refreshAll()} />;
-  if (!health || !info || !diagnostics) return <ErrorPanel message="Kuroha foundation data is unavailable." retry={() => void refreshAll()} />;
+  if (!health || !info || !diagnostics) return <ErrorPanel message="Данные платформы Kuroha недоступны." retry={() => void refreshAll()} />;
 
   return (
     <ErrorBoundary>

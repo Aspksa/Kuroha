@@ -79,7 +79,7 @@ describe("App", () => {
   it("loads the routed overview", async () => {
     render(<App />);
     expect(await screen.findByText("Куроха")).toBeInTheDocument();
-    expect(screen.getByText(/Quiet power/)).toBeInTheDocument();
+    expect(screen.getByText(/Тихая сила/)).toBeInTheDocument();
     expect(window.location.pathname).toBe("/overview");
   });
 
@@ -88,7 +88,7 @@ describe("App", () => {
     render(<App />);
     await screen.findByText("Куроха");
 
-    await user.click(screen.getByRole("link", { name: "System" }));
+    await user.click(screen.getByRole("link", { name: "Система" }));
 
     await waitFor(() => expect(window.location.pathname).toBe("/system"));
     expect(screen.getByText("3.13.0")).toBeInTheDocument();
@@ -98,6 +98,6 @@ describe("App", () => {
   it("shows the first-run wizard when setup is not completed", async () => {
     localStorage.removeItem(SETUP_KEY);
     render(<App />);
-    expect(await screen.findByText("Welcome to Kuroha")).toBeInTheDocument();
+    expect(await screen.findByText("Добро пожаловать в Kuroha")).toBeInTheDocument();
   });
 });

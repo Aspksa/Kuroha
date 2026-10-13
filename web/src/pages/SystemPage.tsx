@@ -14,40 +14,40 @@ export default function SystemPage({
   return (
     <>
       <header className="topbar">
-        <div><span className="eyebrow">KUROHA / SYSTEM</span><h1>System diagnostics</h1></div>
-        <Badge tone="ok">Operational</Badge>
+        <div><span className="eyebrow">KUROHA / СИСТЕМА</span><h1>Диагностика системы</h1></div>
+        <Badge tone="ok">Работает</Badge>
       </header>
 
       <section className="stack">
         <Card>
-          <span className="eyebrow">RUNTIME</span>
+          <span className="eyebrow">СРЕДА ВЫПОЛНЕНИЯ</span>
           <dl className="details">
             <div><dt>Kuroha</dt><dd>{health.version}</dd></div>
             <div><dt>Python</dt><dd>{diagnostics.python_version}</dd></div>
-            <div><dt>Node</dt><dd>{diagnostics.node_version ?? "not detected"}</dd></div>
-            <div><dt>Platform</dt><dd>{diagnostics.platform}</dd></div>
-            <div><dt>Environment</dt><dd>{diagnostics.environment}</dd></div>
-            <div><dt>Port</dt><dd>{diagnostics.port}</dd></div>
-            <div><dt>UI runtime</dt><dd>{runtime.kind()}</dd></div>
+            <div><dt>Node</dt><dd>{diagnostics.node_version ?? "не обнаружен"}</dd></div>
+            <div><dt>Платформа</dt><dd>{diagnostics.platform}</dd></div>
+            <div><dt>Окружение</dt><dd>{diagnostics.environment}</dd></div>
+            <div><dt>Порт</dt><dd>{diagnostics.port}</dd></div>
+            <div><dt>Среда интерфейса</dt><dd>{runtime.kind()}</dd></div>
           </dl>
         </Card>
 
         <div className="two-column">
           <Card>
-            <span className="eyebrow">STORAGE</span>
+            <span className="eyebrow">ХРАНИЛИЩЕ</span>
             <dl className="details compact">
-              <div><dt>Database</dt><dd>{bytes(diagnostics.database_size_bytes)}</dd></div>
-              <div><dt>Schema</dt><dd>v{diagnostics.database_schema_version}</dd></div>
-              <div><dt>Journal</dt><dd>{diagnostics.database_journal_mode}</dd></div>
-              <div><dt>Integrity</dt><dd>{diagnostics.database_integrity}</dd></div>
-              <div><dt>Writable</dt><dd>{diagnostics.data_dir_writable ? "yes" : "no"}</dd></div>
-              <div><dt>Disk free</dt><dd>{bytes(diagnostics.disk_free_bytes)}</dd></div>
+              <div><dt>База данных</dt><dd>{bytes(diagnostics.database_size_bytes)}</dd></div>
+              <div><dt>Схема</dt><dd>v{diagnostics.database_schema_version}</dd></div>
+              <div><dt>Журнал</dt><dd>{diagnostics.database_journal_mode}</dd></div>
+              <div><dt>Целостность</dt><dd>{diagnostics.database_integrity}</dd></div>
+              <div><dt>Запись</dt><dd>{diagnostics.data_dir_writable ? "разрешена" : "недоступна"}</dd></div>
+              <div><dt>Свободно на диске</dt><dd>{bytes(diagnostics.disk_free_bytes)}</dd></div>
             </dl>
           </Card>
           <Card>
-            <span className="eyebrow">CAPABILITIES</span>
+            <span className="eyebrow">ВОЗМОЖНОСТИ</span>
             <div className="chips">{info.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div>
-            <div className="path-block"><span>Data directory</span><code>{diagnostics.data_dir}</code></div>
+            <div className="path-block"><span>Папка данных</span><code>{diagnostics.data_dir}</code></div>
           </Card>
         </div>
       </section>
