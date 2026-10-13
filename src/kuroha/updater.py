@@ -383,9 +383,12 @@ class UpdateService:
             pass
         return self.preferences()
 
-    def _fetch_json(self, url: str) -> dict[str, Any]:
+    def _fetch_json(self, url: str) -> Any:
         with urllib.request.urlopen(self._request(url), timeout=10) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def github_json(self, url: str) -> Any:
+        return self._fetch_json(url)
 
     def _installed_sha(self) -> str | None:
         git_dir = self.project_root / ".git"
