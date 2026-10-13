@@ -25,7 +25,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.6.0",
+            "version": "0.6.1",
             "environment": "test",
         }
 
@@ -48,6 +48,7 @@ def test_settings_persist_in_sqlite(tmp_path: Path) -> None:
         assert initial.json()["theme"] == "dark"
         assert initial.json()["language"] == "ru"
         assert initial.json()["minimize_to_tray"] is True
+        assert initial.json()["preferred_data_dir"] == ""
 
         updated = client.put(
             "/api/v1/settings",
@@ -69,7 +70,7 @@ def test_diagnostics_exposes_storage_health(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["database_schema_version"] == 3
+    assert payload["database_schema_version"] == 4
     assert payload["database_journal_mode"] == "wal"
     assert payload["database_integrity"] == "ok"
     assert payload["data_dir_writable"] is True
