@@ -123,6 +123,9 @@ def create_backup(request: Request) -> BackupInfo:
 
 @router.post("/backups/import", response_model=BackupInfo, status_code=201)
 async def import_backup(request: Request) -> BackupInfo:
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type != "application/zip":
+        raise HTTPException(status_code=415, detail="Backup import requires application/zip")
     try:
         payload = await request.body()
         return BackupInfo.model_validate(_store(request).import_backup(payload))
