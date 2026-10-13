@@ -25,7 +25,7 @@ def test_health_and_readiness(tmp_path: Path) -> None:
         assert health.status_code == 200
         assert health.json() == {
             "status": "ok",
-            "version": "0.5.0",
+            "version": "0.6.0",
             "environment": "test",
         }
 
@@ -44,18 +44,23 @@ def test_legacy_api_alias_remains_available(tmp_path: Path) -> None:
 def test_settings_persist_in_sqlite(tmp_path: Path) -> None:
     with build_client(tmp_path) as client:
         initial = client.get("/api/v1/settings")
-        assert initial.json() == {"site_name": "Kuroha", "theme": "dark"}
+        assert initial.json()["site_name"] == "Kuroha"
+        assert initial.json()["theme"] == "dark"
+        assert initial.json()["language"] == "ru"
+        assert initial.json()["minimize_to_tray"] is True
 
         updated = client.put(
             "/api/v1/settings",
             json={"site_name": "Куроха", "theme": "light"},
         )
         assert updated.status_code == 200
-        assert updated.json() == {"site_name": "Куроха", "theme": "light"}
+        assert updated.json()["site_name"] == "Куроха"
+        assert updated.json()["theme"] == "light"
 
     with build_client(tmp_path) as client:
         persisted = client.get("/api/v1/settings")
-        assert persisted.json() == {"site_name": "Куроха", "theme": "light"}
+        assert persisted.json()["site_name"] == "Куроха"
+        assert persisted.json()["theme"] == "light"
 
 
 def test_diagnostics_exposes_storage_health(tmp_path: Path) -> None:
@@ -64,7 +69,7 @@ def test_diagnostics_exposes_storage_health(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["database_schema_version"] == 2
+    assert payload["database_schema_version"] == 3
     assert payload["database_journal_mode"] == "wal"
     assert payload["database_integrity"] == "ok"
     assert payload["data_dir_writable"] is True
