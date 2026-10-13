@@ -76,6 +76,16 @@ export default function SettingsPage({
             </label>
 
             <label>
+              Папка данных
+              <input
+                value={draft.preferred_data_dir}
+                placeholder="Оставьте пустым для папки data рядом с Kuroha"
+                onChange={(e) => setDraft((v) => ({ ...v, preferred_data_dir: e.target.value }))}
+              />
+              <small className="muted">Применится после перезапуска. При первом переходе текущие данные будут скопированы в новую папку.</small>
+            </label>
+
+            <label>
               Язык интерфейса
               <input value="Русский" readOnly />
             </label>
