@@ -5,6 +5,12 @@ import { logsDownloadUrl } from "../api/client";
 import { Button, Card, EmptyState } from "../components/ui";
 
 const levels = ["ALL", "INFO", "WARNING", "ERROR"];
+const levelLabels: Record<string, string> = {
+  ALL: "ВСЕ",
+  INFO: "INFO",
+  WARNING: "WARNING",
+  ERROR: "ERROR",
+};
 
 export default function LogsPage({
   logs,
@@ -24,27 +30,27 @@ export default function LogsPage({
   return (
     <>
       <header className="topbar">
-        <div><span className="eyebrow">KUROHA / LOGS</span><h1>System journal</h1></div>
+        <div><span className="eyebrow">KUROHA / ЖУРНАЛ</span><h1>Системный журнал</h1></div>
         <div className="toolbar">
-          <a className="ghost link-button" href={logsDownloadUrl()}>Download</a>
-          <Button onClick={() => void onRefresh()}>Refresh</Button>
+          <a className="ghost link-button" href={logsDownloadUrl()}>Скачать</a>
+          <Button onClick={() => void onRefresh()}>Обновить</Button>
         </div>
       </header>
 
       <Card>
         <div className="log-filters">
           {levels.map((item) => (
-            <button key={item} className={level === item ? "active" : ""} onClick={() => void onLevel(item)}>{item}</button>
+            <button key={item} className={level === item ? "active" : ""} onClick={() => void onLevel(item)}>{levelLabels[item]}</button>
           ))}
           <Button kind="danger" disabled={busy} onClick={() => {
-            if (!window.confirm("Clear current and rotated Kuroha logs?")) return;
+            if (!window.confirm("Очистить текущий и архивные журналы Kuroha?")) return;
             setBusy(true);
             void onClear().finally(() => setBusy(false));
-          }}>Clear logs</Button>
+          }}>Очистить журнал</Button>
         </div>
 
         {logs.length === 0 ? (
-          <EmptyState title="No log entries">There are no entries for this filter.</EmptyState>
+          <EmptyState title="Записей нет">Для выбранного фильтра нет записей.</EmptyState>
         ) : (
           <div className="log-list">
             {logs.map((entry, index) => (

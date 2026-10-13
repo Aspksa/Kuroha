@@ -29,22 +29,22 @@ export default function SetupWizard({
   return (
     <div className="wizard-backdrop">
       <Card className="wizard">
-        <span className="eyebrow">FIRST RUN · {step + 1}/4</span>
+        <span className="eyebrow">ПЕРВЫЙ ЗАПУСК · {step + 1}/4</span>
         {step === 0 && (
           <>
-            <h1>Welcome to Kuroha</h1>
-            <p>Configure the local platform before using the dashboard.</p>
-            <label>Display name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
+            <h1>Добро пожаловать в Kuroha</h1>
+            <p>Настройте локальную платформу перед началом работы.</p>
+            <label>Отображаемое имя<input value={name} onChange={(e) => setName(e.target.value)} /></label>
           </>
         )}
         {step === 1 && (
           <>
-            <h1>Choose appearance</h1>
-            <p>The theme is stored in your local Kuroha database.</p>
+            <h1>Выберите оформление</h1>
+            <p>Тема хранится локально в базе данных Kuroha.</p>
             <div className="theme-options">
               {(["dark", "light"] as const).map((value) => (
                 <button key={value} className={theme === value ? "selected" : ""} onClick={() => setTheme(value)}>
-                  {value}
+                  {value === "dark" ? "Тёмная" : "Светлая"}
                 </button>
               ))}
             </div>
@@ -52,29 +52,29 @@ export default function SetupWizard({
         )}
         {step === 2 && (
           <>
-            <h1>Local data</h1>
-            <p>Kuroha will keep its database, backups and logs in this data directory.</p>
+            <h1>Локальные данные</h1>
+            <p>Kuroha будет хранить базу данных, резервные копии и журналы в этой папке.</p>
             <code className="wizard-path">{diagnostics.data_dir}</code>
-            <p>{diagnostics.data_dir_writable ? "Write access verified." : "Data directory is not writable."}</p>
+            <p>{diagnostics.data_dir_writable ? "Доступ на запись подтверждён." : "Нет доступа на запись в папку данных."}</p>
           </>
         )}
         {step === 3 && (
           <>
-            <h1>Environment check</h1>
+            <h1>Проверка окружения</h1>
             <dl className="details">
               <div><dt>Python</dt><dd>{diagnostics.python_version}</dd></div>
-              <div><dt>Node</dt><dd>{diagnostics.node_version ?? "not detected"}</dd></div>
-              <div><dt>Database</dt><dd>{diagnostics.database_integrity}</dd></div>
-              <div><dt>Environment</dt><dd>{diagnostics.environment}</dd></div>
+              <div><dt>Node</dt><dd>{diagnostics.node_version ?? "не обнаружен"}</dd></div>
+              <div><dt>База данных</dt><dd>{diagnostics.database_integrity}</dd></div>
+              <div><dt>Окружение</dt><dd>{diagnostics.environment}</dd></div>
             </dl>
           </>
         )}
         <div className="wizard-actions">
-          {step > 0 && <Button onClick={() => setStep((value) => value - 1)}>Back</Button>}
+          {step > 0 && <Button onClick={() => setStep((value) => value - 1)}>Назад</Button>}
           {step < 3 ? (
-            <Button kind="primary" onClick={() => setStep((value) => value + 1)}>Continue</Button>
+            <Button kind="primary" onClick={() => setStep((value) => value + 1)}>Продолжить</Button>
           ) : (
-            <Button kind="primary" onClick={() => void finish()}>Open Kuroha</Button>
+            <Button kind="primary" onClick={() => void finish()}>Открыть Kuroha</Button>
           )}
         </div>
       </Card>

@@ -10,18 +10,18 @@ export default class ErrorBoundary extends Component<PropsWithChildren, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Kuroha UI error", error, info);
+    console.error("Ошибка интерфейса Kuroha", error, info);
   }
 
   render(): ReactNode {
     if (this.state.error) {
       return (
         <main className="fatal-state">
-          <span className="eyebrow">KUROHA / UI FAILURE</span>
-          <h1>Interface recovery</h1>
+          <span className="eyebrow">KUROHA / ОШИБКА ИНТЕРФЕЙСА</span>
+          <h1>Восстановление интерфейса</h1>
           <p>{this.state.error.message}</p>
           <button className="primary" onClick={() => window.location.reload()}>
-            Reload Kuroha
+            Перезапустить Kuroha
           </button>
         </main>
       );

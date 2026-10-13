@@ -42,7 +42,7 @@ export function EmptyState({
   );
 }
 
-export function LoadingPanel({ label = "Loading Kuroha…" }: { label?: string }) {
+export function LoadingPanel({ label = "Загрузка Kuroha…" }: { label?: string }) {
   return (
     <div className="state-panel" role="status">
       <span className="spinner" />
@@ -60,16 +60,16 @@ export function ErrorPanel({
 }) {
   return (
     <div className="state-panel error-state">
-      <strong>Something went wrong</strong>
+      <strong>Что-то пошло не так</strong>
       <p>{message}</p>
-      {retry && <Button onClick={retry}>Try again</Button>}
+      {retry && <Button onClick={retry}>Повторить</Button>}
     </div>
   );
 }
 
 export function bytes(value: number): string {
-  if (value < 1024) return value + " B";
-  const units = ["KB", "MB", "GB", "TB"];
+  if (value < 1024) return value + " Б";
+  const units = ["КБ", "МБ", "ГБ", "ТБ"];
   let size = value / 1024;
   let unit = units[0];
   for (let index = 1; index < units.length && size >= 1024; index += 1) {

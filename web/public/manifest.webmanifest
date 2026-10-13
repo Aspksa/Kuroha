@@ -1,7 +1,8 @@
 {
   "name": "Kuroha",
   "short_name": "Kuroha",
-  "description": "Kuroha local platform foundation",
+  "description": "Локальная платформа Kuroha",
+  "lang": "ru",
   "start_url": "/overview",
   "display": "standalone",
   "background_color": "#06050a",

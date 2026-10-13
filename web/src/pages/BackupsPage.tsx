@@ -30,10 +30,10 @@ export default function BackupsPage({
   return (
     <>
       <header className="topbar">
-        <div><span className="eyebrow">KUROHA / BACKUPS</span><h1>Backup & restore</h1></div>
+        <div><span className="eyebrow">KUROHA / РЕЗЕРВНЫЕ КОПИИ</span><h1>Резервное копирование</h1></div>
         <div className="toolbar">
-          <Button onClick={() => input.current?.click()} disabled={busy}>Import ZIP</Button>
-          <Button kind="primary" onClick={() => void run(onCreate)} disabled={busy}>Create backup</Button>
+          <Button onClick={() => input.current?.click()} disabled={busy}>Импорт ZIP</Button>
+          <Button kind="primary" onClick={() => void run(onCreate)} disabled={busy}>Создать копию</Button>
           <input
             ref={input}
             hidden
@@ -51,26 +51,26 @@ export default function BackupsPage({
       <section className="stack">
         <Card>
           <div className="storage-bars">
-            <div><span>Database</span><strong>{bytes(usage.database_bytes)}</strong></div>
-            <div><span>Backups</span><strong>{bytes(usage.backups_bytes)}</strong></div>
-            <div><span>Logs</span><strong>{bytes(usage.logs_bytes)}</strong></div>
-            <div><span>Total managed</span><strong>{bytes(usage.total_bytes)}</strong></div>
+            <div><span>База данных</span><strong>{bytes(usage.database_bytes)}</strong></div>
+            <div><span>Резервные копии</span><strong>{bytes(usage.backups_bytes)}</strong></div>
+            <div><span>Журналы</span><strong>{bytes(usage.logs_bytes)}</strong></div>
+            <div><span>Всего занято</span><strong>{bytes(usage.total_bytes)}</strong></div>
           </div>
         </Card>
 
         <Card>
           {backups.length === 0 ? (
-            <EmptyState title="No restore points">Create a backup before major changes.</EmptyState>
+            <EmptyState title="Нет точек восстановления">Создайте резервную копию перед значительными изменениями.</EmptyState>
           ) : (
             <div className="backup-list">
               {backups.map((backup) => (
                 <div className="backup-row" key={backup.id}>
-                  <div><strong>{backup.id}</strong><small>{bytes(backup.size_bytes)} · {new Date(backup.created_at).toLocaleString()}</small></div>
+                  <div><strong>{backup.id}</strong><small>{bytes(backup.size_bytes)} · {new Date(backup.created_at).toLocaleString("ru-RU")}</small></div>
                   <div className="row-actions">
-                    <a className="ghost link-button" href={backupDownloadUrl(backup.id)}>Download</a>
+                    <a className="ghost link-button" href={backupDownloadUrl(backup.id)}>Скачать</a>
                     <Button disabled={busy} onClick={() => {
-                      if (window.confirm("Restore this backup? Current database will be replaced.")) void run(() => onRestore(backup.id));
-                    }}>Restore</Button>
+                      if (window.confirm("Восстановить эту резервную копию? Текущая база данных будет заменена.")) void run(() => onRestore(backup.id));
+                    }}>Восстановить</Button>
                   </div>
                 </div>
               ))}
@@ -79,10 +79,10 @@ export default function BackupsPage({
         </Card>
 
         <Card>
-          <span className="eyebrow">MAINTENANCE</span>
-          <h2>Clean old files</h2>
-          <p className="muted">Keep the 5 newest backups and remove rotated log files.</p>
-          <Button kind="danger" disabled={busy} onClick={() => void run(onCleanup)}>Clean storage</Button>
+          <span className="eyebrow">ОБСЛУЖИВАНИЕ</span>
+          <h2>Очистка старых файлов</h2>
+          <p className="muted">Сохранить 5 последних резервных копий и удалить старые файлы журналов.</p>
+          <Button kind="danger" disabled={busy} onClick={() => void run(onCleanup)}>Очистить хранилище</Button>
         </Card>
       </section>
     </>

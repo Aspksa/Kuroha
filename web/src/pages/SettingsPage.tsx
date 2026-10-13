@@ -28,30 +28,30 @@ export default function SettingsPage({
 
   return (
     <>
-      <header className="topbar"><div><span className="eyebrow">KUROHA / SETTINGS</span><h1>Local preferences</h1></div></header>
+      <header className="topbar"><div><span className="eyebrow">KUROHA / НАСТРОЙКИ</span><h1>Локальные настройки</h1></div></header>
       <section className="stack">
         <Card>
           <form className="settings-form" onSubmit={submit}>
-            <label>Site name<input maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></label>
+            <label>Название сайта<input maxLength={80} value={name} onChange={(e) => setName(e.target.value)} /></label>
             <fieldset>
-              <legend>Theme</legend>
+              <legend>Тема</legend>
               <div className="theme-options">
                 {(["dark", "light"] as const).map((value) => (
                   <button className={theme === value ? "selected" : ""} key={value} type="button" onClick={() => setTheme(value)}>
-                    <span className={"theme-preview " + value} /><span>{value}</span>
+                    <span className={"theme-preview " + value} /><span>{value === "dark" ? "Тёмная" : "Светлая"}</span>
                   </button>
                 ))}
               </div>
             </fieldset>
-            <Button kind="primary" type="submit" disabled={saving || !name.trim()}>{saving ? "Saving…" : "Save settings"}</Button>
+            <Button kind="primary" type="submit" disabled={saving || !name.trim()}>{saving ? "Сохранение…" : "Сохранить настройки"}</Button>
           </form>
         </Card>
 
         <Card>
-          <span className="eyebrow">FIRST RUN</span>
-          <h2>Setup wizard</h2>
-          <p className="muted">Run the environment setup again without deleting data.</p>
-          <Button onClick={onResetSetup}>Run setup again</Button>
+          <span className="eyebrow">ПЕРВЫЙ ЗАПУСК</span>
+          <h2>Мастер настройки</h2>
+          <p className="muted">Запустите первоначальную настройку повторно без удаления данных.</p>
+          <Button onClick={onResetSetup}>Запустить настройку снова</Button>
         </Card>
       </section>
     </>
