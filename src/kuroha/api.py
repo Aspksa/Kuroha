@@ -96,10 +96,11 @@ def update_settings(payload: SettingsUpdate, request: Request) -> PublicSettings
     try:
         current = _store(request).update_settings(values)
         write_launcher_config(request.app.state.settings.project_root / "data", current)
-        set_windows_autostart(
-            request.app.state.settings.project_root,
-            current.get("autostart_windows", "false") == "true",
-        )
+        if "autostart_windows" in values:
+            set_windows_autostart(
+                request.app.state.settings.project_root,
+                current.get("autostart_windows", "false") == "true",
+            )
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PublicSettings.model_validate(current)
