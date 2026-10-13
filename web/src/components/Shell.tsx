@@ -76,12 +76,21 @@ export default function Shell({ settings, health }: { settings: PublicSettings; 
           </span>
           <div className="brand-copy">
             <strong>{settings.site_name}</strong>
-            <small>黒羽 · ОСНОВА</small>
+            <small><span>黒羽</span><span className="brand-separator">·</span><span>ОСНОВА</span></small>
           </div>
-          <button className="sidebar-collapse" type="button" onClick={() => setCollapsed((value) => !value)} title={collapsed ? "Развернуть меню" : "Свернуть меню"}>
-            {collapsed ? "›" : "‹"}
-          </button>
         </div>
+
+        <button
+          className="sidebar-collapse"
+          type="button"
+          onClick={() => setCollapsed((value) => !value)}
+          title={collapsed ? "Развернуть меню" : "Свернуть меню"}
+          aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} />
+          </svg>
+        </button>
 
         <nav aria-label="Основная навигация">
           {items.map((item) => (
